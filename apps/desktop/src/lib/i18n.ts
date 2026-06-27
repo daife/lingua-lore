@@ -67,7 +67,9 @@ export const translations = {
     updateAvailable: "Update available",
     updatePrompt: "A new version is available. Please download and install from:\nhttps://github.com/daife/lingua-lore/releases\n\nThe app will close after you confirm.",
     updateTitle: "Update Available",
-    quitApp: "Close app"
+    quitApp: "Close app",
+    switchToNightMode: "Switch to night mode",
+    switchToDayMode: "Switch to day mode"
   },
   zh: {
     brand: "语境传说",
@@ -129,7 +131,9 @@ export const translations = {
     updateAvailable: "有新版本可用",
     updatePrompt: "检测到新版本，请前往以下地址下载安装：\nhttps://github.com/daife/lingua-lore/releases\n\n确认后应用将退出。",
     updateTitle: "发现更新",
-    quitApp: "关闭应用"
+    quitApp: "关闭应用",
+    switchToNightMode: "切换到夜间模式",
+    switchToDayMode: "切换到日间模式"
   },
   ja: {
     brand: "言の葉ロア",
@@ -191,7 +195,9 @@ export const translations = {
     updateAvailable: "アップデートがあります",
     updatePrompt: "新しいバージョンが利用可能です。以下からダウンロードしてインストールしてください：\nhttps://github.com/daife/lingua-lore/releases\n\n確認後、アプリを終了します。",
     updateTitle: "アップデートのお知らせ",
-    quitApp: "アプリを閉じる"
+    quitApp: "アプリを閉じる",
+    switchToNightMode: "ナイトモードに切り替え",
+    switchToDayMode: "デイモードに切り替え"
   }
 } satisfies Record<AppLanguage, Record<string, string | ((value: string) => string)>>;
 

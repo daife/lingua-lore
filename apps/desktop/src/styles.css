@@ -17,6 +17,16 @@ body {
   background: #f4f1ea;
 }
 
+:root[data-theme="night"] {
+  color-scheme: dark;
+  color: #e6edf3;
+  background: #0d1117;
+}
+
+:root[data-theme="night"] body {
+  background: #0d1117;
+}
+
 button,
 input,
 textarea {
@@ -157,6 +167,142 @@ button {
   min-width: 0;
   height: 100dvh;
   background: #f8f5ee;
+}
+
+.theme-toggle {
+  position: absolute;
+  top: 18px;
+  right: 22px;
+  z-index: 18;
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid #d4cbbd;
+  border-radius: 999px;
+  background: rgba(255, 253, 248, 0.92);
+  color: #5f5548;
+  padding: 0;
+  box-shadow: 0 8px 24px rgba(25, 23, 19, 0.1);
+}
+
+.theme-toggle:hover {
+  border-color: #213f3a;
+  color: #213f3a;
+}
+
+.night-mode {
+  color: #e6edf3;
+  background: #0d1117;
+}
+
+.night-mode .sidebar,
+.night-mode .inspector,
+.night-mode .choice-panel {
+  background: #111827;
+  border-color: #30363d;
+}
+
+.night-mode .reader-shell,
+.night-mode .input-box {
+  background: #0d1117;
+}
+
+.night-mode .story-header,
+.night-mode .input-box {
+  border-color: #30363d;
+}
+
+.night-mode .theme-toggle,
+.night-mode .command-button,
+.night-mode input,
+.night-mode textarea,
+.night-mode select,
+.night-mode .dropdown-trigger,
+.night-mode .dropdown-menu,
+.night-mode .world-item.active,
+.night-mode .icon-button,
+.night-mode .quick-mode-toggle,
+.night-mode .choice-card,
+.night-mode .scene-strip span,
+.night-mode .phones span,
+.night-mode .translate-popover,
+.night-mode .update-dialog {
+  border-color: #30363d;
+  background: #161b22;
+  color: #e6edf3;
+}
+
+.night-mode .world-item,
+.night-mode .world-open-button,
+.night-mode .turn-position {
+  border-color: #30363d;
+  background: #0f172a;
+  color: #e6edf3;
+}
+
+.night-mode .primary-button,
+.night-mode .command-button.active,
+.night-mode .quick-mode-toggle.active,
+.night-mode .dropdown-option.active {
+  border-color: #58a6ff;
+  background: #58a6ff;
+  color: #07111f;
+}
+
+.night-mode .theme-toggle:hover,
+.night-mode .icon-button.world-export:hover,
+.night-mode .settings-status {
+  border-color: #58a6ff;
+  color: #58a6ff;
+}
+
+.night-mode .brand span,
+.night-mode .section-title,
+.night-mode .world-item span,
+.night-mode .story-header span,
+.night-mode .empty-reader,
+.night-mode .opening-note,
+.night-mode .settings-form label,
+.night-mode .dropdown-caret,
+.night-mode .scene-strip span,
+.night-mode .phones span,
+.night-mode .turn-position {
+  color: #8b949e;
+}
+
+.night-mode .opening-note h2,
+.night-mode .world-open-button p,
+.night-mode .update-copy,
+.night-mode .dropdown-option,
+.night-mode .narration,
+.night-mode .dialogue {
+  color: #e6edf3;
+}
+
+.night-mode .user-action {
+  border-color: #f778ba;
+  background: #1f1320;
+  color: #f0d8e6;
+}
+
+.night-mode .dialogue strong,
+.night-mode .icon-button.danger:hover,
+.night-mode .error-box button {
+  color: #f778ba;
+}
+
+.night-mode .dropdown-option:hover {
+  background: #21262d;
+}
+
+.night-mode .error-box {
+  border-color: #f778ba;
+  background: #21131a;
+}
+
+.night-mode .update-overlay {
+  background: rgba(1, 4, 9, 0.72);
 }
 
 .brand {
@@ -478,7 +624,7 @@ select:focus {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 24px 32px 18px;
+  padding: 24px 72px 18px 32px;
   border-bottom: 1px solid #ded6ca;
 }
 
@@ -632,7 +778,14 @@ select:focus {
   }
 
   .story-header {
-    padding: 24px 14px 10px;
+    padding: 24px 56px 10px 14px;
+  }
+
+  .theme-toggle {
+    top: 16px;
+    right: 14px;
+    width: 32px;
+    height: 32px;
   }
 
   .story-header h1 {

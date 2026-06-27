@@ -1,5 +1,5 @@
 import { type MutableRefObject, type PointerEvent, useEffect, useRef, useState } from "react";
-import { BookOpen, Library, Settings } from "lucide-react";
+import { BookOpen, Library, Moon, Settings, Sun } from "lucide-react";
 import { WorldLibraryPage } from "../pages/WorldLibraryPage";
 import { ReaderPage } from "../pages/ReaderPage";
 import { SettingsPanel } from "../pages/SettingsPage";
@@ -9,6 +9,14 @@ import { useAppStore } from "../stores/useAppStore";
 
 const SWIPE_DISTANCE = 86;
 const SWIPE_AXIS_RATIO = 1.35;
+type ThemeMode = "day" | "night";
+
+function defaultThemeMode(): ThemeMode {
+  if (typeof window === "undefined") {
+    return "day";
+  }
+  return window.localStorage.getItem("lingua-lore-theme") === "night" ? "night" : "day";
+}
 
 export function App() {
   const {
@@ -26,6 +34,7 @@ export function App() {
   const [libraryOpen, setLibraryOpen] = useState(shouldShowPanels);
   const [settingsOpen, setSettingsOpen] = useState(shouldShowPanels);
   const [availableVersion, setAvailableVersion] = useState("");
+  const [themeMode, setThemeMode] = useState<ThemeMode>(defaultThemeMode);
   const readerSwipeStart = useRef<{ x: number; y: number } | null>(null);
   const librarySwipeStart = useRef<{ x: number; y: number } | null>(null);
   const settingsSwipeStart = useRef<{ x: number; y: number } | null>(null);
@@ -38,6 +47,10 @@ export function App() {
       }
     })();
   }, [appLanguage]);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = themeMode;
+  }, [themeMode]);
 
   useEffect(() => {
     void api
@@ -108,10 +121,21 @@ export function App() {
     setSettingsOpen(false);
   }
 
+  function toggleThemeMode() {
+    setThemeMode((current) => {
+      const next = current === "night" ? "day" : "night";
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem("lingua-lore-theme", next);
+      }
+      return next;
+    });
+  }
+
   return (
     <main
       className={[
         "shell",
+        themeMode === "night" ? "night-mode" : "day-mode",
         libraryOpen ? "" : "library-collapsed",
         settingsOpen ? "" : "settings-collapsed"
       ].filter(Boolean).join(" ")}
@@ -157,6 +181,15 @@ export function App() {
             readerSwipeStart.current = null;
           }}
         />
+        <button
+          className="theme-toggle"
+          type="button"
+          aria-label={themeMode === "night" ? t("switchToDayMode") : t("switchToNightMode")}
+          title={themeMode === "night" ? t("switchToDayMode") : t("switchToNightMode")}
+          onClick={toggleThemeMode}
+        >
+          {themeMode === "night" ? <Sun size={17} /> : <Moon size={17} />}
+        </button>
         {activeWorld ? <ReaderPage /> : <div className="empty-reader">{t("emptyReader")}</div>}
       </section>
 
