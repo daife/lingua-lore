@@ -1,7 +1,8 @@
 use anyhow::{anyhow, Result};
+use tokio::time::{sleep, Duration};
 
 use crate::deepseek::{
-    ChatCompletionRequest, ChatMessage, DeepSeekClient, ResponseFormat,
+    ChatCompletionRequest, ChatCompletionResponse, ChatMessage, DeepSeekClient, ResponseFormat,
 };
 use crate::domain::{ApiProfile, StoryTurnInput, StoryTurnResult};
 use crate::storage::AppState;
@@ -20,14 +21,15 @@ pub async fn send_story_turn(
     let conn = state.open_world_conn(&input.world_id)?;
     let context = load_context(&conn, &input)?;
     let mut messages = build_messages(&context)?;
-    let tools = read_only_tool_definitions(api_profile.use_strict_tools);
+    let tools = read_only_tool_definitions();
     let client = DeepSeekClient::new(api_profile.clone());
     let mut tool_rounds = 0;
     let mut tool_calls_total = 0;
 
     for attempt in 0..=2 {
-        let response = client
-            .chat_completion(ChatCompletionRequest {
+        let response = chat_completion_with_retries(
+            &client,
+            ChatCompletionRequest {
                 model: api_profile.model.clone(),
                 messages: messages.clone(),
                 tools: Some(tools.clone()),
@@ -38,8 +40,9 @@ pub async fn send_story_turn(
                 temperature: 0.85,
                 max_tokens: 4096,
                 stream: false,
-            })
-            .await?;
+            },
+        )
+        .await?;
 
         let message = response
             .choices
@@ -59,7 +62,8 @@ pub async fn send_story_turn(
             }
             messages.push(message);
             for call in tool_calls {
-                let result = execute_readonly(&conn, &call.function.name, &call.function.arguments)?;
+                let result =
+                    execute_readonly(&conn, &call.function.name, &call.function.arguments)?;
                 messages.push(ChatMessage::tool(call.id, serde_json::to_string(&result)?));
             }
             continue;
@@ -91,4 +95,23 @@ pub async fn send_story_turn(
     }
 
     Err(anyhow!("Failed to generate a valid story turn"))
+}
+
+async fn chat_completion_with_retries(
+    client: &DeepSeekClient,
+    request: ChatCompletionRequest,
+) -> Result<ChatCompletionResponse> {
+    let mut last_error = None;
+    for attempt in 0..3 {
+        match client.chat_completion(request.clone()).await {
+            Ok(response) => return Ok(response),
+            Err(err) => {
+                last_error = Some(err);
+                if attempt < 2 {
+                    sleep(Duration::from_millis(400 * (attempt + 1) as u64)).await;
+                }
+            }
+        }
+    }
+    Err(last_error.unwrap_or_else(|| anyhow!("DeepSeek request failed")))
 }

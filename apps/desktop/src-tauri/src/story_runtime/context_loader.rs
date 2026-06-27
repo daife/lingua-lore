@@ -10,6 +10,7 @@ pub struct StoryContext {
     pub current_scene: SceneContext,
     pub characters: Vec<CharacterContext>,
     pub story_state: Vec<KeyValueContext>,
+    pub relationship_state: Vec<RelationshipContext>,
     pub recent_messages: Vec<MessageContext>,
     pub recent_summaries: Vec<String>,
     pub user_action: String,
@@ -23,7 +24,6 @@ pub struct WorldProfileContext {
     pub target_language: String,
     pub language_level: String,
     pub narrative_style: String,
-    pub system_prompt: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -44,12 +44,20 @@ pub struct CharacterContext {
     pub background: String,
     pub speaking_style: String,
     pub relationship_to_player: Option<String>,
+    pub is_player_character: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
 pub struct KeyValueContext {
     pub key: String,
     pub value: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct RelationshipContext {
+    pub character_id: String,
+    pub dimension: String,
+    pub value: i64,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -61,7 +69,7 @@ pub struct MessageContext {
 
 pub fn load_context(conn: &Connection, input: &StoryTurnInput) -> Result<StoryContext> {
     let world_profile = conn.query_row(
-        "SELECT title, description, genre, target_language, language_level, narrative_style, system_prompt
+        "SELECT title, description, genre, target_language, language_level, narrative_style
          FROM world_profile LIMIT 1",
         [],
         |row| {
@@ -72,7 +80,6 @@ pub fn load_context(conn: &Connection, input: &StoryTurnInput) -> Result<StoryCo
                 target_language: row.get(3)?,
                 language_level: row.get(4)?,
                 narrative_style: row.get(5)?,
-                system_prompt: row.get(6)?,
             })
         },
     )?;
@@ -94,6 +101,7 @@ pub fn load_context(conn: &Connection, input: &StoryTurnInput) -> Result<StoryCo
 
     let characters = query_characters(conn)?;
     let story_state = query_state(conn)?;
+    let relationship_state = query_relationship_state(conn)?;
     let recent_messages = query_recent_messages(conn, &input.scene_id)?;
     let recent_summaries = query_recent_summaries(conn, &input.scene_id)?;
     let user_action = match &input.input {
@@ -112,6 +120,7 @@ pub fn load_context(conn: &Connection, input: &StoryTurnInput) -> Result<StoryCo
         current_scene,
         characters,
         story_state,
+        relationship_state,
         recent_messages,
         recent_summaries,
         user_action,
@@ -120,8 +129,8 @@ pub fn load_context(conn: &Connection, input: &StoryTurnInput) -> Result<StoryCo
 
 fn query_characters(conn: &Connection) -> Result<Vec<CharacterContext>> {
     let mut stmt = conn.prepare(
-        "SELECT id, name, role, personality, background, speaking_style, relationship_to_player
-         FROM characters ORDER BY created_at ASC LIMIT 8",
+        "SELECT id, name, role, personality, background, speaking_style, relationship_to_player, is_player_character
+         FROM characters ORDER BY is_player_character DESC, created_at ASC LIMIT 12",
     )?;
     let rows = stmt.query_map([], |row| {
         Ok(CharacterContext {
@@ -132,6 +141,7 @@ fn query_characters(conn: &Connection) -> Result<Vec<CharacterContext>> {
             background: row.get(4)?,
             speaking_style: row.get(5)?,
             relationship_to_player: row.get(6)?,
+            is_player_character: row.get::<_, i64>(7)? == 1,
         })
     })?;
     Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
@@ -143,6 +153,21 @@ fn query_state(conn: &Connection) -> Result<Vec<KeyValueContext>> {
         Ok(KeyValueContext {
             key: row.get(0)?,
             value: row.get(1)?,
+        })
+    })?;
+    Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
+}
+
+fn query_relationship_state(conn: &Connection) -> Result<Vec<RelationshipContext>> {
+    let mut stmt = conn.prepare(
+        "SELECT character_id, dimension, value FROM relationship_state
+         ORDER BY character_id, dimension LIMIT 80",
+    )?;
+    let rows = stmt.query_map([], |row| {
+        Ok(RelationshipContext {
+            character_id: row.get(0)?,
+            dimension: row.get(1)?,
+            value: row.get(2)?,
         })
     })?;
     Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)

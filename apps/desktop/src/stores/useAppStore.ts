@@ -3,6 +3,7 @@ import type { ApiProfile, ChoiceOutput, StoryTurnResult, TurnOutput, WorldRecord
 
 export interface ReaderTurn {
   id: string;
+  userInput?: string | null;
   output: TurnOutput;
 }
 
@@ -16,7 +17,8 @@ interface AppStore {
   loading: boolean;
   error?: string;
   setWorlds: (worlds: WorldRecord[]) => void;
-  setActiveWorld: (world: WorldRecord, sceneId: string) => void;
+  setActiveWorld: (world: WorldRecord, sceneId: string, turns?: ReaderTurn[]) => void;
+  clearActiveWorld: () => void;
   setApiProfile: (profile: ApiProfile | null) => void;
   pushTurn: (result: StoryTurnResult) => void;
   setLoading: (loading: boolean) => void;
@@ -29,12 +31,24 @@ export const useAppStore = create<AppStore>((set) => ({
   choices: [],
   loading: false,
   setWorlds: (worlds) => set({ worlds }),
-  setActiveWorld: (activeWorld, activeSceneId) =>
-    set({ activeWorld, activeSceneId, turns: [], choices: [] }),
+  setActiveWorld: (activeWorld, activeSceneId, turns = []) => {
+    const lastTurn = turns[turns.length - 1];
+    set({
+      activeWorld,
+      activeSceneId,
+      turns,
+      choices: lastTurn?.output.choices ?? []
+    });
+  },
+  clearActiveWorld: () =>
+    set({ activeWorld: undefined, activeSceneId: undefined, turns: [], choices: [] }),
   setApiProfile: (apiProfile) => set({ apiProfile }),
   pushTurn: (result) =>
     set((state) => ({
-      turns: [...state.turns, { id: result.turn_id, output: result.output }],
+      turns: [
+        ...state.turns,
+        { id: result.turn_id, userInput: result.user_input, output: result.output }
+      ],
       choices: result.output.choices
     })),
   setLoading: (loading) => set({ loading }),

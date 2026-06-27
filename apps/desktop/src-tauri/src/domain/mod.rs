@@ -8,7 +8,6 @@ pub struct WorldRecord {
     pub slug: String,
     pub title: String,
     pub description: String,
-    pub cover_path: Option<String>,
     pub storage_path: String,
     pub target_language: String,
     pub language_level: String,
@@ -25,6 +24,21 @@ pub struct CreateWorldRequest {
     pub target_language: String,
     pub language_level: String,
     pub narrative_style: String,
+    #[serde(default)]
+    pub characters: Vec<CreateCharacterRequest>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateCharacterRequest {
+    pub name: String,
+    pub role: String,
+    pub personality: String,
+    pub background: String,
+    pub speaking_style: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub relationship_to_player: Option<String>,
+    #[serde(default)]
+    pub is_player_character: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -112,6 +126,8 @@ pub struct StoryTurnInput {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StoryTurnResult {
     pub turn_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub user_input: Option<String>,
     pub output: TurnOutput,
 }
 

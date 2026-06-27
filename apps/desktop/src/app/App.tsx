@@ -25,7 +25,6 @@ export function App() {
           <BookOpen size={22} />
           <div>
             <strong>Lingua Lore</strong>
-            <span>Read-only tools + JSON turns</span>
           </div>
         </div>
         <div className="section-title">

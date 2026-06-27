@@ -129,7 +129,7 @@ pub fn commit_turn(
     }
 
     for memory in &output.memory_candidates {
-        let accepted = memory.importance >= 7;
+        let accepted = memory.importance >= 7 && character_exists(&tx, &memory.character_id)?;
         tx.execute(
             "INSERT INTO memory_candidates (id, turn_id, character_id, content, importance, tags, accepted, created_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
@@ -162,6 +162,9 @@ pub fn commit_turn(
     }
 
     for update in &output.relationship_updates {
+        if !character_exists(&tx, &update.character_id)? {
+            continue;
+        }
         let old_value: Option<i64> = tx
             .query_row(
                 "SELECT value FROM relationship_state WHERE character_id = ?1 AND dimension = ?2",
@@ -169,7 +172,7 @@ pub fn commit_turn(
                 |row| row.get(0),
             )
             .optional()?;
-        let new_value = old_value.unwrap_or(0) + update.delta;
+        let new_value = (old_value.unwrap_or(0) + update.delta).clamp(-100, 100);
         tx.execute(
             "INSERT OR REPLACE INTO relationship_state (character_id, dimension, value, updated_at)
              VALUES (?1, ?2, ?3, ?4)",
@@ -198,5 +201,18 @@ pub fn commit_turn(
     }
 
     tx.commit()?;
-    Ok(StoryTurnResult { turn_id, output })
+    Ok(StoryTurnResult {
+        turn_id,
+        user_input: Some(user_content),
+        output,
+    })
+}
+
+fn character_exists(conn: &Connection, character_id: &str) -> Result<bool> {
+    let count: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM characters WHERE id = ?1",
+        params![character_id],
+        |row| row.get(0),
+    )?;
+    Ok(count > 0)
 }

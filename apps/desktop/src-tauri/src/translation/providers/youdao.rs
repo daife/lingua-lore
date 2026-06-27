@@ -4,9 +4,13 @@ use serde_json::Value;
 
 use crate::domain::{KeyValue, TranslationResult};
 
-pub async fn translate(word: &str) -> Result<TranslationResult> {
+pub async fn translate(
+    word: &str,
+    source_language: &str,
+    target_language: &str,
+) -> Result<TranslationResult> {
     let encoded = urlencoding::encode(word.trim());
-    let dicts = "%7B%22count%22%3A99%2C%22dicts%22%3A%5B%5B%22ec%22%2C%22ce%22%2C%22rel_word%22%2C%22phrs%22%2C%22fanyi%22%2C%22blng_sents_part%22%5D%5D%7D";
+    let dicts = dicts_for_languages(source_language, target_language);
     let url = format!("https://dict.youdao.com/jsonapi?q={encoded}&dicts={dicts}");
     let response = Client::new().post(url).send().await?;
     let status = response.status();
@@ -14,10 +18,15 @@ pub async fn translate(word: &str) -> Result<TranslationResult> {
     if !status.is_success() {
         return Err(anyhow!("Youdao request failed with {status}"));
     }
-    parse_youdao_response(word, &text)
+    parse_youdao_response(word, &text, source_language, target_language)
 }
 
-fn parse_youdao_response(source_text: &str, json_input: &str) -> Result<TranslationResult> {
+fn parse_youdao_response(
+    source_text: &str,
+    json_input: &str,
+    source_language: &str,
+    target_language: &str,
+) -> Result<TranslationResult> {
     let json: Value = serde_json::from_str(json_input)?;
     let mut translated_text = String::new();
     let mut us_phone = String::new();
@@ -26,11 +35,15 @@ fn parse_youdao_response(source_text: &str, json_input: &str) -> Result<Translat
     let mut phrases = Vec::new();
     let mut examples = Vec::new();
 
-    if let Some(word) = json
-        .get("ec")
-        .and_then(|v| v.get("word"))
-        .and_then(|v| v.as_array())
-        .and_then(|arr| arr.first())
+    let preferred_dictionary = if is_chinese_language(source_language) && is_english_language(target_language) {
+        "ce"
+    } else {
+        "ec"
+    };
+    let fallback_dictionary = if preferred_dictionary == "ec" { "ce" } else { "ec" };
+
+    if let Some(word) = first_dictionary_word(&json, preferred_dictionary)
+        .or_else(|| first_dictionary_word(&json, fallback_dictionary))
     {
         us_phone = word.get("usphone").and_then(Value::as_str).unwrap_or("").to_string();
         uk_phone = word.get("ukphone").and_then(Value::as_str).unwrap_or("").to_string();
@@ -149,4 +162,31 @@ fn parse_youdao_response(source_text: &str, json_input: &str) -> Result<Translat
         example_sentences: examples.join(",\n "),
         provider: "youdao_public".to_string(),
     })
+}
+
+fn dicts_for_languages(source_language: &str, target_language: &str) -> &'static str {
+    if is_chinese_language(source_language) && is_english_language(target_language) {
+        "%7B%22count%22%3A99%2C%22dicts%22%3A%5B%5B%22ce%22%2C%22fanyi%22%2C%22blng_sents_part%22%2C%22ec%22%2C%22rel_word%22%2C%22phrs%22%5D%5D%7D"
+    } else {
+        "%7B%22count%22%3A99%2C%22dicts%22%3A%5B%5B%22ec%22%2C%22fanyi%22%2C%22blng_sents_part%22%2C%22ce%22%2C%22rel_word%22%2C%22phrs%22%5D%5D%7D"
+    }
+}
+
+fn first_dictionary_word<'a>(json: &'a Value, dictionary: &str) -> Option<&'a Value> {
+    json.get(dictionary)
+        .and_then(|v| v.get("word"))
+        .and_then(|v| v.as_array())
+        .and_then(|arr| arr.first())
+}
+
+fn is_chinese_language(language: &str) -> bool {
+    let normalized = language.trim().to_lowercase();
+    normalized.contains("chinese")
+        || normalized.contains("中文")
+        || normalized.contains("简体")
+        || normalized.contains("繁體")
+}
+
+fn is_english_language(language: &str) -> bool {
+    language.trim().eq_ignore_ascii_case("english")
 }

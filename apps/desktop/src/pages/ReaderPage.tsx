@@ -1,9 +1,24 @@
-import { FormEvent, MouseEvent, useRef, useState } from "react";
-import { BookmarkPlus, Loader2, Send, Wand2 } from "lucide-react";
+import { FormEvent, MouseEvent, UIEvent, useEffect, useRef, useState } from "react";
+import { Loader2, Send, Wand2 } from "lucide-react";
 import { api } from "../lib/tauri";
 import { readSelectionSnapshot, SelectionSnapshot } from "../lib/selection";
 import type { ChoiceOutput, TranslationResult } from "../lib/types";
 import { useAppStore } from "../stores/useAppStore";
+
+const BEGIN_STORY_ACTION = "Begin the story with a vivid opening scene.";
+
+function translationTargetForStoryLanguage(language: string) {
+  const normalized = language.trim().toLowerCase();
+  if (
+    normalized.includes("中文") ||
+    normalized.includes("chinese") ||
+    normalized.includes("简体") ||
+    normalized.includes("繁體")
+  ) {
+    return "English";
+  }
+  return "Chinese";
+}
 
 export function ReaderPage() {
   const {
@@ -17,9 +32,11 @@ export function ReaderPage() {
     pushTurn
   } = useAppStore();
   const storyRef = useRef<HTMLDivElement | null>(null);
+  const requestInFlightRef = useRef(false);
   const [selection, setSelection] = useState<SelectionSnapshot | null>(null);
   const [translation, setTranslation] = useState<TranslationResult | null>(null);
   const [translating, setTranslating] = useState(false);
+  const [currentTurn, setCurrentTurn] = useState(0);
 
   if (!activeWorld || !activeSceneId) {
     return null;
@@ -27,12 +44,24 @@ export function ReaderPage() {
 
   const world = activeWorld;
   const sceneId = activeSceneId;
+  const storyStarted = turns.length > 0;
+
+  useEffect(() => {
+    if (!storyStarted) {
+      setCurrentTurn(0);
+      return;
+    }
+    setCurrentTurn(turns.length);
+    requestAnimationFrame(() => {
+      storyRef.current?.scrollTo({ top: storyRef.current.scrollHeight, behavior: "smooth" });
+    });
+  }, [storyStarted, turns.length]);
 
   async function sendFreeText(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     const text = String(form.get("text") || "").trim();
-    if (!text) {
+    if (!text || loading || requestInFlightRef.current) {
       return;
     }
     event.currentTarget.reset();
@@ -40,6 +69,9 @@ export function ReaderPage() {
   }
 
   async function selectChoice(choice: ChoiceOutput) {
+    if (loading || requestInFlightRef.current) {
+      return;
+    }
     if (choice.id) {
       await sendTurn({ kind: "choice", choice_id: choice.id });
       return;
@@ -48,6 +80,10 @@ export function ReaderPage() {
   }
 
   async function sendTurn(input: { kind: "free_text"; text: string } | { kind: "choice"; choice_id: string }) {
+    if (requestInFlightRef.current) {
+      return;
+    }
+    requestInFlightRef.current = true;
     setLoading(true);
     try {
       const result = await api.sendStoryTurn({
@@ -59,8 +95,23 @@ export function ReaderPage() {
     } catch (err) {
       setError(String(err));
     } finally {
+      requestInFlightRef.current = false;
       setLoading(false);
     }
+  }
+
+  function handleStoryScroll(event: UIEvent<HTMLDivElement>) {
+    const viewport = event.currentTarget;
+    const viewportTop = viewport.getBoundingClientRect().top;
+    const blocks = Array.from(viewport.querySelectorAll<HTMLElement>("[data-turn-index]"));
+    let visibleTurn = currentTurn || 1;
+    for (const block of blocks) {
+      const index = Number(block.dataset.turnIndex || "1");
+      if (block.getBoundingClientRect().top - viewportTop < 120) {
+        visibleTurn = index;
+      }
+    }
+    setCurrentTurn(Math.min(Math.max(visibleTurn, 1), turns.length));
   }
 
   async function handleMouseUp(_event: MouseEvent) {
@@ -77,31 +128,13 @@ export function ReaderPage() {
         text: snapshot.text,
         context: snapshot.context,
         sourceLanguage: world.target_language,
-        targetLanguage: "Chinese"
+        targetLanguage: translationTargetForStoryLanguage(world.target_language)
       });
       setTranslation(result);
     } catch (err) {
       setError(String(err));
     } finally {
       setTranslating(false);
-    }
-  }
-
-  async function saveWord() {
-    if (!translation) {
-      return;
-    }
-    try {
-      await api.saveVocabulary({
-        worldId: world.id,
-        sourceText: translation.source_text,
-        translatedText: translation.translated_text,
-        sourceLanguage: world.target_language,
-        targetLanguage: "Chinese",
-        context: selection?.context
-      });
-    } catch (err) {
-      setError(String(err));
     }
   }
 
@@ -112,25 +145,32 @@ export function ReaderPage() {
           <span>{world.target_language} · {world.language_level}</span>
           <h1>{world.title}</h1>
         </div>
-        <button
-          className="command-button compact"
-          disabled={loading}
-          onClick={() => void sendTurn({ kind: "free_text", text: "Begin the story with a vivid opening scene." })}
-        >
-          {loading ? <Loader2 className="spin" size={16} /> : <Wand2 size={16} />}
-          Start turn
-        </button>
       </header>
 
-      <div className="story-viewport" ref={storyRef} onMouseUp={handleMouseUp}>
-        {turns.length === 0 ? (
+      <div className="story-viewport" ref={storyRef} onMouseUp={handleMouseUp} onScroll={handleStoryScroll}>
+        {storyStarted ? (
+          <div className="turn-position">
+            Turn {currentTurn || 1} / {turns.length}
+          </div>
+        ) : null}
+        {!storyStarted ? (
           <div className="opening-note">
             <h2>{world.description || "A new story is waiting."}</h2>
-            <p>Press Start turn or enter a free action below.</p>
+            <button
+              className="primary-button"
+              disabled={loading}
+              onClick={() => void sendTurn({ kind: "free_text", text: BEGIN_STORY_ACTION })}
+            >
+              {loading ? <Loader2 className="spin" size={16} /> : <Wand2 size={16} />}
+              Begin the story
+            </button>
           </div>
         ) : (
-          turns.map((turn) => (
-            <article className="turn-block" key={turn.id}>
+          turns.map((turn, index) => (
+            <article className="turn-block" key={turn.id} data-turn-index={index + 1}>
+              {turn.userInput && turn.userInput !== BEGIN_STORY_ACTION ? (
+                <p className="user-action">{turn.userInput}</p>
+              ) : null}
               <p className="narration">{turn.output.narration}</p>
               {turn.output.dialogues.map((dialogue, index) => (
                 <p className="dialogue" key={`${turn.id}-${index}`}>
@@ -148,23 +188,26 @@ export function ReaderPage() {
         )}
       </div>
 
-      <section className="choice-panel" aria-label="Choices">
-        {choices.map((choice) => (
-          <button className={`choice-card risk-${choice.risk}`} key={choice.label} onClick={() => void selectChoice(choice)} disabled={loading}>
-            <strong>{choice.label}</strong>
-            <span>{choice.text}</span>
-            <small>{choice.intent} · {choice.risk}</small>
-          </button>
-        ))}
-      </section>
+      {storyStarted ? (
+        <section className="choice-panel" aria-label="Choices">
+          {choices.map((choice) => (
+            <button className="choice-card" key={choice.label} onClick={() => void selectChoice(choice)} disabled={loading}>
+              <strong>{choice.label}</strong>
+              <span>{choice.text}</span>
+            </button>
+          ))}
+        </section>
+      ) : null}
 
-      <form className="input-box" onSubmit={sendFreeText}>
-        <input name="text" placeholder="Type a free action..." disabled={loading} />
-        <button className="primary-button" disabled={loading}>
-          {loading ? <Loader2 className="spin" size={16} /> : <Send size={16} />}
-          Send
-        </button>
-      </form>
+      {storyStarted ? (
+        <form className="input-box" onSubmit={sendFreeText}>
+          <input name="text" placeholder="Type a free action..." disabled={loading} />
+          <button className="primary-button" disabled={loading}>
+            {loading ? <Loader2 className="spin" size={16} /> : <Send size={16} />}
+            Send
+          </button>
+        </form>
+      ) : null}
 
       {selection ? (
         <div className="translate-popover" style={{ left: selection.x, top: selection.y }}>
@@ -184,10 +227,6 @@ export function ReaderPage() {
                   ))}
                 </ul>
               ) : null}
-              <button className="command-button compact" onClick={() => void saveWord()}>
-                <BookmarkPlus size={16} />
-                Save
-              </button>
             </>
           ) : null}
         </div>

@@ -7,10 +7,10 @@ import type { ApiProfile } from "../lib/types";
 const DEFAULT_PROFILE: ApiProfile = {
   id: "",
   name: "DeepSeek",
-  base_url: "https://api.deepseek.com",
-  model: "deepseek-chat",
+  base_url: "https://api.deepseek.com/beta",
+  model: "deepseek-v4-flash",
   api_key: "",
-  use_strict_tools: false
+  use_strict_tools: true
 };
 
 export function SettingsPanel() {
@@ -31,7 +31,7 @@ export function SettingsPanel() {
         base_url: String(form.get("base_url") || DEFAULT_PROFILE.base_url),
         model: String(form.get("model") || DEFAULT_PROFILE.model),
         api_key: String(form.get("api_key") || ""),
-        use_strict_tools: form.get("use_strict_tools") === "on"
+        use_strict_tools: true
       });
       setApiProfile(profile);
       setSaved(true);
@@ -59,10 +59,6 @@ export function SettingsPanel() {
       <label>
         API Key
         <input name="api_key" type="password" defaultValue={profile.api_key} />
-      </label>
-      <label className="check-row">
-        <input name="use_strict_tools" type="checkbox" defaultChecked={profile.use_strict_tools} />
-        Strict tool schema
       </label>
       <button className="primary-button">
         <Save size={16} />

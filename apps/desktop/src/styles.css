@@ -66,7 +66,6 @@ button {
 .brand span,
 .section-title,
 .world-item span,
-.choice-card small,
 .story-header span {
   color: #6e665c;
   font-size: 12px;
@@ -119,7 +118,8 @@ button {
 }
 
 input,
-textarea {
+textarea,
+select {
   width: 100%;
   border: 1px solid #c9beae;
   border-radius: 8px;
@@ -129,9 +129,19 @@ textarea {
   outline: none;
 }
 
+textarea {
+  resize: none;
+}
+
 input:focus,
-textarea:focus {
+textarea:focus,
+select:focus {
   border-color: #213f3a;
+}
+
+.ai-fill-panel {
+  display: grid;
+  gap: 8px;
 }
 
 .split {
@@ -140,17 +150,41 @@ textarea:focus {
   gap: 8px;
 }
 
+.ai-fill-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 0.9fr);
+  gap: 8px;
+}
+
+.genre-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.genre-chip {
+  border: 1px solid #d4cbbd;
+  border-radius: 999px;
+  background: #fffdf8;
+  color: #3d3933;
+  padding: 5px 9px;
+}
+
 .world-list {
   display: grid;
   gap: 10px;
+  max-height: min(720px, 68vh);
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .world-item {
+  position: relative;
   text-align: left;
   border: 1px solid #d4cbbd;
   border-radius: 8px;
   background: #f8f5ee;
-  padding: 12px;
+  padding: 0;
 }
 
 .world-item.active {
@@ -158,14 +192,47 @@ textarea:focus {
   background: #fffdf8;
 }
 
-.world-item strong,
-.world-item span {
+.world-open-button {
+  display: block;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  padding: 12px 42px 12px 12px;
+}
+
+.world-open-button strong,
+.world-open-button span {
   display: block;
 }
 
-.world-item p {
+.world-open-button p {
   margin: 8px 0 0;
   color: #3d3933;
+}
+
+.icon-button {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid #d4cbbd;
+  border-radius: 8px;
+  background: #fffdf8;
+  color: #6e665c;
+  padding: 0;
+}
+
+.icon-button.danger {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+}
+
+.icon-button.danger:hover {
+  border-color: #8a3d2f;
+  color: #8a3d2f;
 }
 
 .reader-page {
@@ -191,8 +258,23 @@ textarea:focus {
 }
 
 .story-viewport {
+  position: relative;
   overflow: auto;
   padding: 34px clamp(32px, 7vw, 88px);
+}
+
+.turn-position {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  width: max-content;
+  margin: 0 auto 18px;
+  border: 1px solid #d4cbbd;
+  border-radius: 999px;
+  background: rgba(255, 253, 248, 0.94);
+  color: #6e665c;
+  padding: 5px 11px;
+  font-size: 12px;
 }
 
 .empty-reader,
@@ -200,6 +282,7 @@ textarea:focus {
   height: 100%;
   display: grid;
   place-content: center;
+  gap: 18px;
   color: #6e665c;
   text-align: center;
 }
@@ -214,6 +297,16 @@ textarea:focus {
 .turn-block {
   max-width: 820px;
   margin: 0 auto 34px;
+}
+
+.user-action {
+  display: inline-block;
+  margin: 0 0 14px;
+  padding: 8px 12px;
+  border-left: 3px solid #8a3d2f;
+  background: #fff8ec;
+  color: #5f5548;
+  line-height: 1.55;
 }
 
 .narration {
@@ -262,9 +355,10 @@ textarea:focus {
 
 .choice-card {
   display: grid;
-  grid-template-columns: 28px 1fr;
-  gap: 8px 10px;
-  min-height: 96px;
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  min-height: 76px;
   text-align: left;
   border: 1px solid #c9beae;
   border-radius: 8px;
@@ -273,7 +367,6 @@ textarea:focus {
 }
 
 .choice-card strong {
-  grid-row: span 2;
   display: grid;
   place-items: center;
   width: 28px;
@@ -281,14 +374,6 @@ textarea:focus {
   border-radius: 50%;
   background: #213f3a;
   color: white;
-}
-
-.choice-card small {
-  grid-column: 2;
-}
-
-.risk-high {
-  border-color: #8a3d2f;
 }
 
 .input-box {

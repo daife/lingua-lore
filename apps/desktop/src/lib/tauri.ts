@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type {
   ApiProfile,
   CreateWorldRequest,
+  GenerateWorldDraftRequest,
   StoryTurnResult,
   TranslationResult,
   WorldBootstrap,
@@ -11,6 +12,9 @@ import type {
 export const api = {
   listWorlds: () => invoke<WorldRecord[]>("list_worlds"),
   createWorld: (request: CreateWorldRequest) => invoke<WorldRecord>("create_world", { request }),
+  deleteWorld: (worldId: string) => invoke<void>("delete_world", { worldId }),
+  generateWorldDraft: (request: GenerateWorldDraftRequest) =>
+    invoke<CreateWorldRequest>("generate_world_draft", { request }),
   getWorldBootstrap: (worldId: string) =>
     invoke<WorldBootstrap>("get_world_bootstrap", { worldId }),
   getApiProfile: () => invoke<ApiProfile | null>("get_api_profile"),
@@ -33,23 +37,5 @@ export const api = {
       context: payload.context ?? null,
       sourceLanguage: payload.sourceLanguage,
       targetLanguage: payload.targetLanguage
-    }),
-  saveVocabulary: (payload: {
-    worldId: string;
-    sourceText: string;
-    translatedText: string;
-    sourceLanguage: string;
-    targetLanguage: string;
-    context?: string;
-    messageId?: string;
-  }) =>
-    invoke<void>("save_vocabulary", {
-      worldId: payload.worldId,
-      sourceText: payload.sourceText,
-      translatedText: payload.translatedText,
-      sourceLanguage: payload.sourceLanguage,
-      targetLanguage: payload.targetLanguage,
-      context: payload.context ?? null,
-      messageId: payload.messageId ?? null
     })
 };

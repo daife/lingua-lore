@@ -6,7 +6,6 @@ CREATE TABLE IF NOT EXISTS world_profile (
   target_language TEXT NOT NULL,
   language_level TEXT NOT NULL,
   narrative_style TEXT NOT NULL,
-  system_prompt TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
@@ -19,23 +18,12 @@ CREATE TABLE IF NOT EXISTS characters (
   background TEXT NOT NULL,
   speaking_style TEXT NOT NULL,
   relationship_to_player TEXT,
-  avatar_path TEXT,
   is_player_character INTEGER NOT NULL DEFAULT 0,
-  created_at TEXT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS chapters (
-  id TEXT PRIMARY KEY,
-  title TEXT NOT NULL,
-  summary TEXT,
-  order_index INTEGER NOT NULL,
-  status TEXT NOT NULL,
   created_at TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS scenes (
   id TEXT PRIMARY KEY,
-  chapter_id TEXT NOT NULL,
   title TEXT NOT NULL,
   location TEXT NOT NULL,
   mood TEXT NOT NULL,
@@ -95,6 +83,9 @@ CREATE TABLE IF NOT EXISTS state_update_logs (
   created_at TEXT NOT NULL
 );
 
+DROP TABLE IF EXISTS chapters;
+DROP TABLE IF EXISTS world_lore;
+
 CREATE TABLE IF NOT EXISTS memories (
   id TEXT PRIMARY KEY,
   character_id TEXT NOT NULL,
@@ -135,24 +126,5 @@ CREATE TABLE IF NOT EXISTS relationship_update_logs (
   delta INTEGER NOT NULL,
   new_value INTEGER,
   reason TEXT NOT NULL,
-  created_at TEXT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS world_lore (
-  id TEXT PRIMARY KEY,
-  title TEXT NOT NULL,
-  content TEXT NOT NULL,
-  tags TEXT NOT NULL,
-  created_at TEXT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS vocabulary (
-  id TEXT PRIMARY KEY,
-  source_text TEXT NOT NULL,
-  translated_text TEXT NOT NULL,
-  source_language TEXT NOT NULL,
-  target_language TEXT NOT NULL,
-  context TEXT,
-  message_id TEXT,
   created_at TEXT NOT NULL
 );

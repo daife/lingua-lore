@@ -5,7 +5,6 @@ export interface WorldRecord {
   slug: string;
   title: string;
   description: string;
-  cover_path?: string | null;
   storage_path: string;
   target_language: string;
   language_level: string;
@@ -21,6 +20,22 @@ export interface CreateWorldRequest {
   target_language: string;
   language_level: string;
   narrative_style: string;
+  characters: CreateCharacterRequest[];
+}
+
+export interface CreateCharacterRequest {
+  name: string;
+  role: string;
+  personality: string;
+  background: string;
+  speaking_style: string;
+  relationship_to_player?: string | null;
+  is_player_character: boolean;
+}
+
+export interface GenerateWorldDraftRequest {
+  genre: string;
+  target_language: string;
 }
 
 export interface ApiProfile {
@@ -64,12 +79,14 @@ export interface TurnOutput {
 
 export interface StoryTurnResult {
   turn_id: string;
+  user_input?: string | null;
   output: TurnOutput;
 }
 
 export interface WorldBootstrap {
   world: WorldRecord;
   scene_id: string;
+  turns: StoryTurnResult[];
 }
 
 export interface TranslationResult {
