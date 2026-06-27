@@ -1,12 +1,44 @@
 # Lingua Lore
 
-Lingua Lore is a desktop and mobile app for immersive foreign-language story reading.
+[**English**](README.md) | [**中文**](README.zh.md)
 
-Localized product names:
+---
 
-- English: Lingua Lore
-- Chinese: 语境传说
-- Japanese: 言の葉ロア
+A desktop and mobile app for immersive foreign-language story reading.
+
+### Product Names
+
+| Language | Name |
+|---|---|
+| English | Lingua Lore |
+| Chinese (简体中文) | 语境传说 |
+| Japanese (日本語) | 言の葉ロア |
+
+## Roadmap
+
+### ✅ Completed
+
+- [x] World creation & management (CRUD)
+- [x] AI-assisted world draft generation
+- [x] Immersive story reading experience
+- [x] Branching choice-driven narrative
+- [x] Free-text action input
+- [x] Independent selection translation (Youdao)
+- [x] World export / import (ZIP format)
+- [x] Multiple API profile support
+- [x] Quick mode (higher quality, higher token cost)
+- [x] Multilingual UI (English / 中文 / 日本語)
+- [x] Windows (MSI + NSIS) and Android (APK) builds
+- [x] Automatic version update check on startup
+
+### 🚧 In Progress
+
+- [ ] Multi-language translation (full paragraph, more language pairs)
+- [ ] Character relationship viewer
+- [ ] Thinking mode support
+- [ ] Reference mode (upload novel as reference material)
+- [ ] Custom character cards
+- [ ] Progress rollback
 
 ## Stack
 
@@ -93,38 +125,11 @@ Build a release APK locally:
 npm --workspace @lingua-lore/desktop run tauri -- android build --apk --target aarch64
 ```
 
-The unsigned APK is written under:
+The APK is written under:
 
 ```text
 apps/desktop/src-tauri/gen/android/app/build/outputs/apk/universal/release/
 ```
-
-For local sideload testing, sign the APK with a local keystore:
-
-```powershell
-$buildTools = "$env:ANDROID_HOME\build-tools\36.0.0"
-$apkDir = "apps\desktop\src-tauri\gen\android\app\build\outputs\apk\universal\release"
-$unsignedApk = "$apkDir\app-universal-release-unsigned.apk"
-$signedApk = "$apkDir\app-universal-release-signed.apk"
-$keystore = "$env:USERPROFILE\.lingua-lore\release.keystore"
-
-New-Item -ItemType Directory -Force (Split-Path $keystore)
-
-& "$env:JAVA_HOME\bin\keytool.exe" -genkeypair `
-  -v -keystore $keystore `
-  -alias lingua-lore-release `
-  -keyalg RSA -keysize 2048 -validity 10000
-
-& "$buildTools\apksigner.bat" sign `
-  --ks $keystore `
-  --ks-key-alias lingua-lore-release `
-  --out $signedApk `
-  $unsignedApk
-
-& "$buildTools\apksigner.bat" verify --verbose --print-certs $signedApk
-```
-
-Keep release keystores and passwords out of git.
 
 ## Local Release
 
@@ -145,24 +150,18 @@ npm --workspace @lingua-lore/desktop run tauri -- build
 npm --workspace @lingua-lore/desktop run tauri -- android build --apk --target aarch64
 ```
 
-4. Sign the Android APK.
-5. Commit, tag, and push:
+4. Commit, tag, and push:
 
 ```powershell
 git add .
-git commit -m "Prepare v0.1.7 local release"
-git tag v0.1.7
+git commit -m "Prepare v0.1.x local release"
+git tag v0.1.x
 git push origin main
-git push origin v0.1.7
+git push origin v0.1.x
 ```
 
-6. Create the GitHub release from local artifacts:
+5. Create the GitHub release from local artifacts:
 
 ```powershell
-gh release create v0.1.7 `
-  --title "Lingua Lore v0.1.7" `
-  --notes "Local Windows and Android release." `
-  apps/desktop/src-tauri/target/release/bundle/**/*.msi `
-  apps/desktop/src-tauri/target/release/bundle/**/*.exe `
-  apps/desktop/src-tauri/gen/android/app/build/outputs/apk/universal/release/*signed*.apk
+gh release create v0.1.x --title "Lingua Lore v0.1.x" --notes "Local release notes." (Get-Item apps/desktop/src-tauri/target/release/bundle/msi/*.msi).FullName (Get-Item apps/desktop/src-tauri/target/release/bundle/nsis/*.exe).FullName (Get-Item apps/desktop/src-tauri/gen/android/app/build/outputs/apk/universal/release/*.apk).FullName
 ```
