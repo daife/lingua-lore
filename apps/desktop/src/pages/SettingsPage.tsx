@@ -23,7 +23,7 @@ export function SettingsPanel() {
     quickMode,
     setApiProfile,
     setAppLanguage,
-    setError,
+    setSettingsError,
     setQuickMode,
     setWorlds
   } = useAppStore();
@@ -52,7 +52,7 @@ export function SettingsPanel() {
       setSaved(true);
       setStatus("");
     } catch (err) {
-      setError(String(err));
+      setSettingsError(String(err));
     }
   }
 
@@ -74,7 +74,7 @@ export function SettingsPanel() {
       setWorlds(await api.listWorlds());
       setStatus(t("worldImported"));
     } catch (err) {
-      setError(String(err));
+      setSettingsError(String(err));
     } finally {
       setImporting(false);
     }

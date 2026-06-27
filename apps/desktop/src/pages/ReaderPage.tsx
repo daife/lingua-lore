@@ -35,8 +35,9 @@ export function ReaderPage() {
     choices,
     loading,
     quickMode,
+    readerError,
     setLoading,
-    setError,
+    setReaderError,
     pushTurn
   } = useAppStore();
   const t = (key: Parameters<typeof translate>[1], value?: string) => translate(appLanguage, key, value);
@@ -193,7 +194,7 @@ export function ReaderPage() {
       const result = await api.commitStoryTurnPreview(preview);
       pushTurn(result);
     } catch (err) {
-      setError(String(err));
+      setReaderError(String(err));
     } finally {
       invalidatePreviewBuffer();
       requestInFlightRef.current = false;
@@ -217,7 +218,7 @@ export function ReaderPage() {
       const result = await api.commitStoryTurnPreview(preview);
       pushTurn(result);
     } catch (err) {
-      setError(String(err));
+      setReaderError(String(err));
     } finally {
       requestInFlightRef.current = false;
       setLoading(false);
@@ -281,7 +282,7 @@ export function ReaderPage() {
       }
     } catch (err) {
       if (selectionGenerationRef.current === generation) {
-        setError(String(err));
+        setReaderError(String(err));
       }
     } finally {
       if (selectionGenerationRef.current === generation) {
@@ -366,6 +367,13 @@ export function ReaderPage() {
             {t("send")}
           </button>
         </form>
+      ) : null}
+
+      {readerError ? (
+        <div className="error-box reader-error" role="alert">
+          <button onClick={() => setReaderError(undefined)}>{t("dismiss")}</button>
+          <p>{readerError}</p>
+        </div>
       ) : null}
 
       {selection ? (

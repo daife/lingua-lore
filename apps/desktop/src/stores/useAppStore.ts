@@ -18,7 +18,9 @@ interface AppStore {
   loading: boolean;
   quickMode: boolean;
   appLanguage: AppLanguage;
-  error?: string;
+  libraryError?: string;
+  readerError?: string;
+  settingsError?: string;
   setWorlds: (worlds: WorldRecord[]) => void;
   setActiveWorld: (world: WorldRecord, sceneId: string, turns?: ReaderTurn[]) => void;
   clearActiveWorld: () => void;
@@ -27,7 +29,9 @@ interface AppStore {
   setLoading: (loading: boolean) => void;
   setQuickMode: (quickMode: boolean) => void;
   setAppLanguage: (language: AppLanguage) => void;
-  setError: (error?: string) => void;
+  setLibraryError: (error?: string) => void;
+  setReaderError: (error?: string) => void;
+  setSettingsError: (error?: string) => void;
 }
 
 export const useAppStore = create<AppStore>((set) => ({
@@ -66,5 +70,7 @@ export const useAppStore = create<AppStore>((set) => ({
     }
     set({ appLanguage });
   },
-  setError: (error) => set({ error })
+  setLibraryError: (libraryError) => set({ libraryError }),
+  setReaderError: (readerError) => set({ readerError }),
+  setSettingsError: (settingsError) => set({ settingsError })
 }));

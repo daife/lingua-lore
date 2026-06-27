@@ -689,6 +689,19 @@ select:focus {
   color: #8a3d2f;
 }
 
+.inline-error {
+  margin-top: 0;
+}
+
+.reader-error {
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  bottom: 88px;
+  z-index: 12;
+  margin-top: 0;
+}
+
 .translate-popover {
   position: fixed;
   z-index: 20;

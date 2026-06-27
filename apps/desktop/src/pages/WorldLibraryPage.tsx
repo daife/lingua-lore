@@ -130,10 +130,11 @@ export function WorldLibraryPage() {
     worlds,
     activeWorld,
     appLanguage,
+    libraryError,
     setWorlds,
     setActiveWorld,
     clearActiveWorld,
-    setError
+    setLibraryError
   } = useAppStore();
   const t = (key: Parameters<typeof translate>[1], value?: string) => translate(appLanguage, key, value);
   const [openForm, setOpenForm] = useState(worlds.length === 0);
@@ -158,7 +159,7 @@ export function WorldLibraryPage() {
         }))
       );
     } catch (err) {
-      setError(String(err));
+      setLibraryError(String(err));
     }
   }
 
@@ -179,7 +180,7 @@ export function WorldLibraryPage() {
       setWorlds(next);
       setOpenForm(false);
     } catch (err) {
-      setError(String(err));
+      setLibraryError(String(err));
     } finally {
       setCreating(false);
     }
@@ -208,7 +209,7 @@ export function WorldLibraryPage() {
       setShowGenrePicker(false);
       setCustomGenre("");
     } catch (err) {
-      setError(String(err));
+      setLibraryError(String(err));
     } finally {
       setDrafting(false);
     }
@@ -225,7 +226,7 @@ export function WorldLibraryPage() {
       }
       setWorlds(await api.listWorlds());
     } catch (err) {
-      setError(String(err));
+      setLibraryError(String(err));
     }
   }
 
@@ -243,7 +244,7 @@ export function WorldLibraryPage() {
       const bytes = await api.exportWorld(worldId);
       await writeFile(selected, new Uint8Array(bytes));
     } catch (err) {
-      setError(String(err));
+      setLibraryError(String(err));
     }
   }
 
@@ -258,6 +259,13 @@ export function WorldLibraryPage() {
         <Sparkles size={16} />
         {t("aiFill")}
       </button>
+
+      {libraryError ? (
+        <div className="error-box inline-error" role="alert">
+          <button onClick={() => setLibraryError(undefined)}>{t("dismiss")}</button>
+          <p>{libraryError}</p>
+        </div>
+      ) : null}
 
       {showGenrePicker ? (
         <div className="ai-fill-panel">

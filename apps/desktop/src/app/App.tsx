@@ -8,7 +8,15 @@ import { api } from "../lib/tauri";
 import { useAppStore } from "../stores/useAppStore";
 
 export function App() {
-  const { activeWorld, appLanguage, setWorlds, setApiProfile, error, setError } = useAppStore();
+  const {
+    activeWorld,
+    appLanguage,
+    settingsError,
+    setWorlds,
+    setApiProfile,
+    setLibraryError,
+    setSettingsError
+  } = useAppStore();
   const t = (key: Parameters<typeof translate>[1], value?: string) => translate(appLanguage, key, value);
   const shouldShowPanels = () =>
     typeof window === "undefined" ? true : !window.matchMedia("(max-width: 1180px)").matches;
@@ -16,13 +24,15 @@ export function App() {
   const [settingsOpen, setSettingsOpen] = useState(shouldShowPanels);
 
   useEffect(() => {
-    void Promise.all([api.listWorlds(), api.getApiProfile()])
-      .then(([worlds, profile]) => {
-        setWorlds(worlds);
-        setApiProfile(profile);
-      })
-      .catch((err) => setError(String(err)));
-  }, [setApiProfile, setError, setWorlds]);
+    void api
+      .listWorlds()
+      .then(setWorlds)
+      .catch((err) => setLibraryError(String(err)));
+    void api
+      .getApiProfile()
+      .then(setApiProfile)
+      .catch((err) => setSettingsError(String(err)));
+  }, [setApiProfile, setLibraryError, setSettingsError, setWorlds]);
 
   return (
     <main
@@ -83,10 +93,10 @@ export function App() {
           <span>{t("settings")}</span>
         </div>
         <SettingsPanel />
-        {error ? (
+        {settingsError ? (
           <div className="error-box" role="alert">
-            <button onClick={() => setError(undefined)}>{t("dismiss")}</button>
-            <p>{error}</p>
+            <button onClick={() => setSettingsError(undefined)}>{t("dismiss")}</button>
+            <p>{settingsError}</p>
           </div>
         ) : null}
       </aside>

@@ -150,17 +150,17 @@ npm --workspace @lingua-lore/desktop run tauri -- android build --apk --target a
 
 ```powershell
 git add .
-git commit -m "Prepare v0.1.6 local release"
-git tag v0.1.6
+git commit -m "Prepare v0.1.7 local release"
+git tag v0.1.7
 git push origin main
-git push origin v0.1.6
+git push origin v0.1.7
 ```
 
 6. Create the GitHub release from local artifacts:
 
 ```powershell
-gh release create v0.1.6 `
-  --title "Lingua Lore v0.1.6" `
+gh release create v0.1.7 `
+  --title "Lingua Lore v0.1.7" `
   --notes "Local Windows and Android release." `
   apps/desktop/src-tauri/target/release/bundle/**/*.msi `
   apps/desktop/src-tauri/target/release/bundle/**/*.exe `
