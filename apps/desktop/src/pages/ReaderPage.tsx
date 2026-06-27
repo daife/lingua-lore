@@ -25,6 +25,9 @@ export function ReaderPage() {
     return null;
   }
 
+  const world = activeWorld;
+  const sceneId = activeSceneId;
+
   async function sendFreeText(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
@@ -48,8 +51,8 @@ export function ReaderPage() {
     setLoading(true);
     try {
       const result = await api.sendStoryTurn({
-        world_id: activeWorld!.id,
-        scene_id: activeSceneId!,
+        world_id: world.id,
+        scene_id: sceneId,
         input
       });
       pushTurn(result);
@@ -70,10 +73,10 @@ export function ReaderPage() {
     setTranslating(true);
     try {
       const result = await api.translateSelection({
-        worldId: activeWorld.id,
+        worldId: world.id,
         text: snapshot.text,
         context: snapshot.context,
-        sourceLanguage: activeWorld.target_language,
+        sourceLanguage: world.target_language,
         targetLanguage: "Chinese"
       });
       setTranslation(result);
@@ -90,10 +93,10 @@ export function ReaderPage() {
     }
     try {
       await api.saveVocabulary({
-        worldId: activeWorld.id,
+        worldId: world.id,
         sourceText: translation.source_text,
         translatedText: translation.translated_text,
-        sourceLanguage: activeWorld.target_language,
+        sourceLanguage: world.target_language,
         targetLanguage: "Chinese",
         context: selection?.context
       });
@@ -106,8 +109,8 @@ export function ReaderPage() {
     <div className="reader-page">
       <header className="story-header">
         <div>
-          <span>{activeWorld.target_language} · {activeWorld.language_level}</span>
-          <h1>{activeWorld.title}</h1>
+          <span>{world.target_language} · {world.language_level}</span>
+          <h1>{world.title}</h1>
         </div>
         <button
           className="command-button compact"
@@ -122,7 +125,7 @@ export function ReaderPage() {
       <div className="story-viewport" ref={storyRef} onMouseUp={handleMouseUp}>
         {turns.length === 0 ? (
           <div className="opening-note">
-            <h2>{activeWorld.description || "A new story is waiting."}</h2>
+            <h2>{world.description || "A new story is waiting."}</h2>
             <p>Press Start turn or enter a free action below.</p>
           </div>
         ) : (
