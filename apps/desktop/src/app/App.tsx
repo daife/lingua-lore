@@ -1,12 +1,14 @@
-import { useEffect, useState } from "react";
-import { BookOpen, Library, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, Settings } from "lucide-react";
-import { message } from "@tauri-apps/plugin-dialog";
+import { type MutableRefObject, type PointerEvent, useEffect, useRef, useState } from "react";
+import { BookOpen, Library, Settings } from "lucide-react";
 import { WorldLibraryPage } from "../pages/WorldLibraryPage";
 import { ReaderPage } from "../pages/ReaderPage";
 import { SettingsPanel } from "../pages/SettingsPage";
 import { translate } from "../lib/i18n";
 import { api } from "../lib/tauri";
 import { useAppStore } from "../stores/useAppStore";
+
+const SWIPE_DISTANCE = 86;
+const SWIPE_AXIS_RATIO = 1.35;
 
 export function App() {
   const {
@@ -23,16 +25,16 @@ export function App() {
     typeof window === "undefined" ? true : !window.matchMedia("(max-width: 1180px)").matches;
   const [libraryOpen, setLibraryOpen] = useState(shouldShowPanels);
   const [settingsOpen, setSettingsOpen] = useState(shouldShowPanels);
+  const [availableVersion, setAvailableVersion] = useState("");
+  const readerSwipeStart = useRef<{ x: number; y: number } | null>(null);
+  const librarySwipeStart = useRef<{ x: number; y: number } | null>(null);
+  const settingsSwipeStart = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     void (async () => {
       const result = await api.checkVersion();
       if (result.has_update) {
-        await message(
-          `${translate(appLanguage, "updateAvailable")} ${result.latest_version}\n\n${translate(appLanguage, "updatePrompt")}`,
-          { title: translate(appLanguage, "updateTitle"), kind: "info" }
-        );
-        api.quitApp();
+        setAvailableVersion(result.latest_version);
       }
     })();
   }, [appLanguage]);
@@ -48,6 +50,58 @@ export function App() {
       .catch((err) => setSettingsError(String(err)));
   }, [setApiProfile, setLibraryError, setSettingsError, setWorlds]);
 
+  function captureSwipeStart(
+    ref: MutableRefObject<{ x: number; y: number } | null>,
+    event: PointerEvent<HTMLElement>
+  ) {
+    if (event.pointerType === "mouse" && event.button !== 0) {
+      return;
+    }
+    ref.current = { x: event.clientX, y: event.clientY };
+  }
+
+  function readHorizontalSwipe(
+    ref: MutableRefObject<{ x: number; y: number } | null>,
+    event: PointerEvent<HTMLElement>
+  ) {
+    const start = ref.current;
+    ref.current = null;
+    if (!start) {
+      return 0;
+    }
+    const deltaX = event.clientX - start.x;
+    const deltaY = event.clientY - start.y;
+    if (Math.abs(deltaX) < SWIPE_DISTANCE || Math.abs(deltaX) < Math.abs(deltaY) * SWIPE_AXIS_RATIO) {
+      return 0;
+    }
+    return deltaX;
+  }
+
+  function handleReaderSwipeEnd(event: PointerEvent<HTMLElement>) {
+    const deltaX = readHorizontalSwipe(readerSwipeStart, event);
+    if (deltaX > 0) {
+      setLibraryOpen(true);
+      setSettingsOpen(false);
+    } else if (deltaX < 0) {
+      setSettingsOpen(true);
+      setLibraryOpen(false);
+    }
+  }
+
+  function handleLibrarySwipeEnd(event: PointerEvent<HTMLElement>) {
+    const deltaX = readHorizontalSwipe(librarySwipeStart, event);
+    if (deltaX < 0) {
+      setLibraryOpen(false);
+    }
+  }
+
+  function handleSettingsSwipeEnd(event: PointerEvent<HTMLElement>) {
+    const deltaX = readHorizontalSwipe(settingsSwipeStart, event);
+    if (deltaX > 0) {
+      setSettingsOpen(false);
+    }
+  }
+
   return (
     <main
       className={[
@@ -56,34 +110,16 @@ export function App() {
         settingsOpen ? "" : "settings-collapsed"
       ].filter(Boolean).join(" ")}
     >
-      <div className="shell-toolbar" aria-label={t("layoutControls")}>
-        <button
-          className="icon-button"
-          type="button"
-          onClick={() => setLibraryOpen((open) => !open)}
-          aria-label={libraryOpen ? t("hideWorldLibrary") : t("showWorldLibrary")}
-        >
-          {libraryOpen ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
-        </button>
-        <button
-          className="icon-button"
-          type="button"
-          onClick={() => setSettingsOpen((open) => !open)}
-          aria-label={settingsOpen ? t("hideSettings") : t("showSettings")}
-        >
-          {settingsOpen ? <PanelRightClose size={16} /> : <PanelRightOpen size={16} />}
-        </button>
-      </div>
-      <button
-        className="drawer-scrim"
-        type="button"
-        aria-label={t("closeSidePanels")}
-        onClick={() => {
-          setLibraryOpen(false);
-          setSettingsOpen(false);
+      <aside
+        className="sidebar"
+        aria-label={t("worldLibrary")}
+        aria-hidden={!libraryOpen}
+        onPointerDown={(event) => captureSwipeStart(librarySwipeStart, event)}
+        onPointerUp={handleLibrarySwipeEnd}
+        onPointerCancel={() => {
+          librarySwipeStart.current = null;
         }}
-      />
-      <aside className="sidebar" aria-label={t("worldLibrary")} aria-hidden={!libraryOpen}>
+      >
         <div className="brand">
           <BookOpen size={22} />
           <div>
@@ -97,11 +133,27 @@ export function App() {
         <WorldLibraryPage />
       </aside>
 
-      <section className="reader-shell">
+      <section
+        className="reader-shell"
+        onPointerDown={(event) => captureSwipeStart(readerSwipeStart, event)}
+        onPointerUp={handleReaderSwipeEnd}
+        onPointerCancel={() => {
+          readerSwipeStart.current = null;
+        }}
+      >
         {activeWorld ? <ReaderPage /> : <div className="empty-reader">{t("emptyReader")}</div>}
       </section>
 
-      <aside className="inspector" aria-label={t("settingsAndStatus")} aria-hidden={!settingsOpen}>
+      <aside
+        className="inspector"
+        aria-label={t("settingsAndStatus")}
+        aria-hidden={!settingsOpen}
+        onPointerDown={(event) => captureSwipeStart(settingsSwipeStart, event)}
+        onPointerUp={handleSettingsSwipeEnd}
+        onPointerCancel={() => {
+          settingsSwipeStart.current = null;
+        }}
+      >
         <div className="section-title">
           <Settings size={16} />
           <span>{t("settings")}</span>
@@ -114,6 +166,21 @@ export function App() {
           </div>
         ) : null}
       </aside>
+      {availableVersion ? (
+        <div className="update-overlay" role="dialog" aria-modal="true" aria-labelledby="update-title">
+          <div className="update-dialog">
+            <h2 id="update-title">{t("updateTitle")}</h2>
+            <p className="update-copy">
+              {t("updateAvailable")} {availableVersion}
+              {"\n\n"}
+              {t("updatePrompt")}
+            </p>
+            <button className="primary-button" type="button" onClick={() => void api.quitApp()}>
+              {t("quitApp")}
+            </button>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }

@@ -38,32 +38,6 @@ button {
   overflow: hidden;
 }
 
-.shell-toolbar {
-  position: fixed;
-  top: 24px;
-  left: 12px;
-  right: 12px;
-  z-index: 30;
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  pointer-events: none;
-}
-
-.shell-toolbar .icon-button {
-  pointer-events: auto;
-}
-
-.drawer-scrim {
-  display: none;
-  position: fixed;
-  inset: 0;
-  z-index: 18;
-  border: 0;
-  background: rgba(25, 23, 19, 0.28);
-  padding: 0;
-}
-
 .sidebar,
 .inspector {
   position: fixed;
@@ -74,6 +48,7 @@ button {
   padding: 18px;
   background: #ebe6db;
   border-right: 1px solid #d4cbbd;
+  touch-action: pan-y;
   transition: transform 0.22s ease;
 }
 
@@ -106,6 +81,42 @@ button {
 
 .settings-collapsed .inspector {
   transform: translateX(100%);
+}
+
+.update-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  background: rgba(25, 23, 19, 0.34);
+  padding: 18px;
+}
+
+.update-dialog {
+  display: grid;
+  gap: 16px;
+  width: min(520px, 100%);
+  border: 1px solid #c9beae;
+  border-radius: 8px;
+  background: #fffdf8;
+  box-shadow: 0 18px 48px rgba(25, 23, 19, 0.18);
+  padding: 22px;
+}
+
+.update-dialog h2 {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 24px;
+  line-height: 1.15;
+}
+
+.update-copy {
+  margin: 0;
+  color: #3d3933;
+  white-space: pre-line;
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 .reader-shell {
@@ -430,7 +441,7 @@ select:focus {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 24px 32px 18px 72px;
+  padding: 24px 32px 18px;
   border-bottom: 1px solid #ded6ca;
 }
 
@@ -567,11 +578,6 @@ select:focus {
 }
 
 @media (max-width: 1180px) {
-  .shell:not(.library-collapsed) .drawer-scrim,
-  .shell:not(.settings-collapsed) .drawer-scrim {
-    display: block;
-  }
-
   .choice-panel {
     grid-template-columns: 1fr;
     max-height: 34dvh;
@@ -588,12 +594,8 @@ select:focus {
     font-size: 14px;
   }
 
-  .shell-toolbar {
-    top: 18px;
-  }
-
   .story-header {
-    padding: 42px 14px 10px 56px;
+    padding: 24px 14px 10px;
   }
 
   .story-header h1 {
