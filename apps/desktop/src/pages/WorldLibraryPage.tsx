@@ -250,12 +250,12 @@ export function WorldLibraryPage() {
 
   return (
     <div className="world-panel">
-      <button className="command-button" type="button" onClick={() => setOpenForm((value) => !value)}>
+      <button className={openForm ? "command-button active" : "command-button"} type="button" onClick={() => setOpenForm((value) => !value)}>
         <Plus size={16} />
         {t("newWorld")}
       </button>
 
-      <button className="command-button" type="button" onClick={() => setShowGenrePicker((value) => !value)}>
+      <button className={showGenrePicker ? "command-button active" : "command-button"} type="button" onClick={() => setShowGenrePicker((value) => !value)}>
         <Sparkles size={16} />
         {t("aiFill")}
       </button>

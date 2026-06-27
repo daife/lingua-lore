@@ -163,6 +163,12 @@ button {
   color: #fffdf8;
 }
 
+.command-button.active {
+  border-color: #213f3a;
+  background: #213f3a;
+  color: #fffdf8;
+}
+
 .compact {
   min-height: 34px;
   padding: 6px 10px;
@@ -332,7 +338,7 @@ select:focus {
   background: transparent;
   color: inherit;
   text-align: left;
-  padding: 12px 78px 12px 12px;
+  padding: 12px;
 }
 
 .world-open-button strong,
