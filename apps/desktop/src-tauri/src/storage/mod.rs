@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use chrono::Utc;
 use rusqlite::{params, Connection};
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::Mutex;
 use uuid::Uuid;
 
@@ -250,11 +250,4 @@ pub fn save_api_profile(state: &AppState, profile: ApiProfile) -> Result<ApiProf
         ],
     )?;
     Ok(ApiProfile { id, ..profile })
-}
-
-pub fn ensure_parent(path: &Path) -> Result<()> {
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)?;
-    }
-    Ok(())
 }
