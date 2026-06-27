@@ -1,0 +1,94 @@
+use anyhow::{anyhow, Result};
+
+use crate::deepseek::{
+    ChatCompletionRequest, ChatMessage, DeepSeekClient, ResponseFormat,
+};
+use crate::domain::{ApiProfile, StoryTurnInput, StoryTurnResult};
+use crate::storage::AppState;
+use crate::story_runtime::context_loader::load_context;
+use crate::story_runtime::output_parser::parse_turn_output;
+use crate::story_runtime::output_validator::validate_turn_output;
+use crate::story_runtime::prompt_builder::build_messages;
+use crate::tool_runtime::{execute_readonly, read_only_tool_definitions};
+use crate::turn_commit::committer::commit_turn;
+
+pub async fn send_story_turn(
+    state: &AppState,
+    api_profile: ApiProfile,
+    input: StoryTurnInput,
+) -> Result<StoryTurnResult> {
+    let conn = state.open_world_conn(&input.world_id)?;
+    let context = load_context(&conn, &input)?;
+    let mut messages = build_messages(&context)?;
+    let tools = read_only_tool_definitions(api_profile.use_strict_tools);
+    let client = DeepSeekClient::new(api_profile.clone());
+    let mut tool_rounds = 0;
+    let mut tool_calls_total = 0;
+
+    for attempt in 0..=2 {
+        let response = client
+            .chat_completion(ChatCompletionRequest {
+                model: api_profile.model.clone(),
+                messages: messages.clone(),
+                tools: Some(tools.clone()),
+                tool_choice: Some("auto".to_string()),
+                response_format: Some(ResponseFormat {
+                    kind: "json_object".to_string(),
+                }),
+                temperature: 0.85,
+                max_tokens: 4096,
+                stream: false,
+            })
+            .await?;
+
+        let message = response
+            .choices
+            .first()
+            .ok_or_else(|| anyhow!("DeepSeek returned no choices"))?
+            .message
+            .clone();
+
+        if let Some(tool_calls) = message.tool_calls.clone() {
+            tool_rounds += 1;
+            tool_calls_total += tool_calls.len();
+            if tool_rounds > 3 || tool_calls_total > 8 {
+                messages.push(ChatMessage::user(
+                    "Stop calling tools. Return the final valid json now.",
+                ));
+                continue;
+            }
+            messages.push(message);
+            for call in tool_calls {
+                let result = execute_readonly(&conn, &call.function.name, &call.function.arguments)?;
+                messages.push(ChatMessage::tool(call.id, serde_json::to_string(&result)?));
+            }
+            continue;
+        }
+
+        let content = message.content.unwrap_or_default();
+        if content.trim().is_empty() {
+            messages.push(ChatMessage::user(
+                "Return the final result as valid json only. Do not return empty content.",
+            ));
+            continue;
+        }
+
+        match parse_turn_output(&content).and_then(|output| {
+            validate_turn_output(&output)?;
+            Ok(output)
+        }) {
+            Ok(output) => {
+                let result = commit_turn(&conn, &input, output, &content)?;
+                return Ok(result);
+            }
+            Err(err) if attempt < 2 => {
+                messages.push(ChatMessage::user(format!(
+                    "Your previous response was invalid json or failed validation: {err}. Return the same turn again as valid json only, with exactly 3 choices labeled A, B, C."
+                )));
+            }
+            Err(err) => return Err(err),
+        }
+    }
+
+    Err(anyhow!("Failed to generate a valid story turn"))
+}
