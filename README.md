@@ -14,6 +14,39 @@ A desktop and mobile app for immersive foreign-language story reading.
 | Chinese (简体中文) | 语境传说 |
 | Japanese (日本語) | 言の葉ロア |
 
+## Why Lingua Lore?
+
+Every interactive story engine faces the same wall: **the LLM forgets**. Characters lose their accent mid-conversation, the plot derails, the world's own rules dissolve into thin air.
+
+Lingua Lore was built from the ground up to solve this — not with fragile prompt hacks, but with a **persistent memory architecture** baked into every story turn.
+
+### 🧠 Persistent Memory & Anti-Amnesia Core
+
+- **Structured memory candidates**: Every turn surfaces memory candidates — key events, character observations, world-state changes — that Rust validates and commits in a single ACID transaction.
+- **Relationship tracking with delta system**: Character relationships evolve dimensionally (trust, familiarity, affection). Each interaction records a delta + reason, so the LLM never has to guess who trusts whom or why.
+- **Scene-aware context loading**: The runtime doesn't dump the entire history — it loads only what's relevant to the current scene, keeping context windows lean and responses sharp.
+- **Turn-summary anchoring**: Every response includes a compressed `turn_summary` that future turns consume as anchoring context, creating a closed-loop memory chain.
+
+### 👥 Character System That Lives
+
+Characters aren't decorative tags. Each one carries:
+- **Personality, background, speaking style** — defining how they react, not just what they say
+- **Dynamic relationship dimensions** that change with player choices
+- **Memory of past interactions** — referenced by the LLM across turns
+- **Player-character support** — step into the story as yourself, not a puppet
+
+Your choices leave real traces. Characters remember what you did. The world bends around your decisions, not the other way around.
+
+### 🎮 Immersive on Purpose
+
+- **Choice-driven narrative** with exactly three curated options per turn, each tagged with intent and risk level
+- **Free-text input** for when the presets don't fit — the LLM interprets your action in-world
+- **Selection translation** lives outside the LLM context (Youdao API), so translation never pollutes or inflates the story state
+- **Quick mode** for deeper, more coherent generation at higher token cost
+- **Auto version check** on startup — never miss an update
+
+Lingua Lore isn't a chat wrapper with a fantasy skin. It's a **stateful narrative engine** where every turn strengthens the story's internal consistency.
+
 ## Roadmap
 
 ### ✅ Completed
