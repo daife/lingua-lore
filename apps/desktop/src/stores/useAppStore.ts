@@ -15,6 +15,7 @@ interface AppStore {
   turns: ReaderTurn[];
   choices: ChoiceOutput[];
   loading: boolean;
+  quickMode: boolean;
   error?: string;
   setWorlds: (worlds: WorldRecord[]) => void;
   setActiveWorld: (world: WorldRecord, sceneId: string, turns?: ReaderTurn[]) => void;
@@ -22,6 +23,7 @@ interface AppStore {
   setApiProfile: (profile: ApiProfile | null) => void;
   pushTurn: (result: StoryTurnResult) => void;
   setLoading: (loading: boolean) => void;
+  setQuickMode: (quickMode: boolean) => void;
   setError: (error?: string) => void;
 }
 
@@ -30,6 +32,7 @@ export const useAppStore = create<AppStore>((set) => ({
   turns: [],
   choices: [],
   loading: false,
+  quickMode: false,
   setWorlds: (worlds) => set({ worlds }),
   setActiveWorld: (activeWorld, activeSceneId, turns = []) => {
     const lastTurn = turns[turns.length - 1];
@@ -52,5 +55,6 @@ export const useAppStore = create<AppStore>((set) => ({
       choices: result.output.choices
     })),
   setLoading: (loading) => set({ loading }),
+  setQuickMode: (quickMode) => set({ quickMode }),
   setError: (error) => set({ error })
 }));

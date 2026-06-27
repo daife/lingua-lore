@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from "react";
-import { Save } from "lucide-react";
+import { Save, Zap } from "lucide-react";
 import { api } from "../lib/tauri";
 import { useAppStore } from "../stores/useAppStore";
 import type { ApiProfile } from "../lib/types";
@@ -14,7 +14,7 @@ const DEFAULT_PROFILE: ApiProfile = {
 };
 
 export function SettingsPanel() {
-  const { apiProfile, setApiProfile, setError } = useAppStore();
+  const { apiProfile, quickMode, setApiProfile, setError, setQuickMode } = useAppStore();
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
@@ -63,6 +63,15 @@ export function SettingsPanel() {
       <button className="primary-button">
         <Save size={16} />
         {saved ? "Saved" : "Save API profile"}
+      </button>
+      <button
+        className={quickMode ? "quick-mode-toggle active" : "quick-mode-toggle"}
+        type="button"
+        onClick={() => setQuickMode(!quickMode)}
+        aria-pressed={quickMode}
+      >
+        <Zap size={16} />
+        Quick mode
       </button>
     </form>
   );

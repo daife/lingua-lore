@@ -1,5 +1,5 @@
 import { FormEvent, MouseEvent, UIEvent, useEffect, useRef, useState } from "react";
-import { Loader2, Send, Wand2, Zap } from "lucide-react";
+import { Loader2, Send, Wand2 } from "lucide-react";
 import { api } from "../lib/tauri";
 import { readSelectionSnapshot, SelectionSnapshot } from "../lib/selection";
 import type { ChoiceOutput, StoryTurnInput, StoryTurnPreview, TranslationResult } from "../lib/types";
@@ -32,6 +32,7 @@ export function ReaderPage() {
     turns,
     choices,
     loading,
+    quickMode,
     setLoading,
     setError,
     pushTurn
@@ -44,8 +45,7 @@ export function ReaderPage() {
   const [translation, setTranslation] = useState<TranslationResult | null>(null);
   const [translating, setTranslating] = useState(false);
   const [currentTurn, setCurrentTurn] = useState(0);
-  const [quickMode, setQuickMode] = useState(false);
-  const [buffering, setBuffering] = useState(false);
+  const [, setBuffering] = useState(false);
 
   if (!activeWorld || !activeSceneId) {
     return null;
@@ -206,6 +206,9 @@ export function ReaderPage() {
   }
 
   async function handleMouseUp(_event: MouseEvent) {
+    if (window.matchMedia("(pointer: coarse)").matches) {
+      return;
+    }
     const snapshot = readSelectionSnapshot(storyRef.current);
     setSelection(snapshot);
     setTranslation(null);
@@ -231,23 +234,6 @@ export function ReaderPage() {
 
   return (
     <div className="reader-page">
-      <aside className="quick-mode-rail" aria-label="Quick mode">
-        <button
-          className={quickMode ? "quick-mode-toggle active" : "quick-mode-toggle"}
-          type="button"
-          onClick={() => setQuickMode((enabled) => !enabled)}
-          aria-pressed={quickMode}
-          title="Quick mode"
-        >
-          <Zap size={16} />
-          <span>Quick</span>
-        </button>
-        {quickMode ? (
-          <span className={buffering ? "quick-mode-status active" : "quick-mode-status"}>
-            {buffering ? "Buffering" : "Ready"}
-          </span>
-        ) : null}
-      </aside>
       <header className="story-header">
         <div>
           <span>{world.target_language} · {world.language_level}</span>
