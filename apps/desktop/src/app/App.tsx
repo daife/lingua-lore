@@ -57,6 +57,7 @@ export function App() {
     if (event.pointerType === "mouse" && event.button !== 0) {
       return;
     }
+    event.currentTarget.setPointerCapture(event.pointerId);
     ref.current = { x: event.clientX, y: event.clientY };
   }
 
@@ -110,16 +111,16 @@ export function App() {
         settingsOpen ? "" : "settings-collapsed"
       ].filter(Boolean).join(" ")}
     >
-      <aside
-        className="sidebar"
-        aria-label={t("worldLibrary")}
-        aria-hidden={!libraryOpen}
-        onPointerDown={(event) => captureSwipeStart(librarySwipeStart, event)}
-        onPointerUp={handleLibrarySwipeEnd}
-        onPointerCancel={() => {
-          librarySwipeStart.current = null;
-        }}
-      >
+      <aside className="sidebar" aria-label={t("worldLibrary")} aria-hidden={!libraryOpen}>
+        <div
+          className="panel-swipe-zone"
+          aria-hidden="true"
+          onPointerDown={(event) => captureSwipeStart(librarySwipeStart, event)}
+          onPointerUp={handleLibrarySwipeEnd}
+          onPointerCancel={() => {
+            librarySwipeStart.current = null;
+          }}
+        />
         <div className="brand">
           <BookOpen size={22} />
           <div>
@@ -133,27 +134,29 @@ export function App() {
         <WorldLibraryPage />
       </aside>
 
-      <section
-        className="reader-shell"
-        onPointerDown={(event) => captureSwipeStart(readerSwipeStart, event)}
-        onPointerUp={handleReaderSwipeEnd}
-        onPointerCancel={() => {
-          readerSwipeStart.current = null;
-        }}
-      >
+      <section className="reader-shell">
+        <div
+          className="reader-swipe-zone"
+          aria-hidden="true"
+          onPointerDown={(event) => captureSwipeStart(readerSwipeStart, event)}
+          onPointerUp={handleReaderSwipeEnd}
+          onPointerCancel={() => {
+            readerSwipeStart.current = null;
+          }}
+        />
         {activeWorld ? <ReaderPage /> : <div className="empty-reader">{t("emptyReader")}</div>}
       </section>
 
-      <aside
-        className="inspector"
-        aria-label={t("settingsAndStatus")}
-        aria-hidden={!settingsOpen}
-        onPointerDown={(event) => captureSwipeStart(settingsSwipeStart, event)}
-        onPointerUp={handleSettingsSwipeEnd}
-        onPointerCancel={() => {
-          settingsSwipeStart.current = null;
-        }}
-      >
+      <aside className="inspector" aria-label={t("settingsAndStatus")} aria-hidden={!settingsOpen}>
+        <div
+          className="panel-swipe-zone"
+          aria-hidden="true"
+          onPointerDown={(event) => captureSwipeStart(settingsSwipeStart, event)}
+          onPointerUp={handleSettingsSwipeEnd}
+          onPointerCancel={() => {
+            settingsSwipeStart.current = null;
+          }}
+        />
         <div className="section-title">
           <Settings size={16} />
           <span>{t("settings")}</span>

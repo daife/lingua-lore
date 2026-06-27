@@ -30,6 +30,7 @@ button {
 .shell {
   --library-width: min(84vw, 320px);
   --settings-width: min(84vw, 340px);
+  --swipe-zone-height: 72px;
   position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -48,7 +49,6 @@ button {
   padding: 18px;
   background: #ebe6db;
   border-right: 1px solid #d4cbbd;
-  touch-action: pan-y;
   transition: transform 0.22s ease;
 }
 
@@ -81,6 +81,28 @@ button {
 
 .settings-collapsed .inspector {
   transform: translateX(100%);
+}
+
+.reader-swipe-zone,
+.panel-swipe-zone {
+  position: absolute;
+  top: 0;
+  height: var(--swipe-zone-height);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.reader-swipe-zone {
+  left: 0;
+  right: 0;
+  z-index: 19;
+}
+
+.panel-swipe-zone {
+  left: 0;
+  right: 0;
+  z-index: 1;
 }
 
 .update-overlay {
@@ -120,6 +142,7 @@ button {
 }
 
 .reader-shell {
+  position: relative;
   grid-column: 1;
   min-width: 0;
   height: 100dvh;
