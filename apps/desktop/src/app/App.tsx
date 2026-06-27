@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { BookOpen, Library, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, Settings } from "lucide-react";
+import { message } from "@tauri-apps/plugin-dialog";
 import { WorldLibraryPage } from "../pages/WorldLibraryPage";
 import { ReaderPage } from "../pages/ReaderPage";
 import { SettingsPanel } from "../pages/SettingsPage";
@@ -22,6 +23,19 @@ export function App() {
     typeof window === "undefined" ? true : !window.matchMedia("(max-width: 1180px)").matches;
   const [libraryOpen, setLibraryOpen] = useState(shouldShowPanels);
   const [settingsOpen, setSettingsOpen] = useState(shouldShowPanels);
+
+  useEffect(() => {
+    void (async () => {
+      const result = await api.checkVersion();
+      if (result.has_update) {
+        await message(
+          `${translate(appLanguage, "updateAvailable")} ${result.latest_version}\n\n${translate(appLanguage, "updatePrompt")}`,
+          { title: translate(appLanguage, "updateTitle"), kind: "info" }
+        );
+        api.quitApp();
+      }
+    })();
+  }, [appLanguage]);
 
   useEffect(() => {
     void api

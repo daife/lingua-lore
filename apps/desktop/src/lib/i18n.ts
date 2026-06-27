@@ -63,7 +63,10 @@ export const translations = {
     translating: "Translating...",
     noTranslation: "No translation found.",
     usPhone: "US",
-    ukPhone: "UK"
+    ukPhone: "UK",
+    updateAvailable: "Update available",
+    updatePrompt: "A new version is available. Please download and install from:\nhttps://github.com/daife/lingua-lore/releases\n\nThe app will now close.",
+    updateTitle: "Update Available"
   },
   zh: {
     brand: "语境传说",
@@ -121,7 +124,10 @@ export const translations = {
     translating: "正在翻译...",
     noTranslation: "未找到翻译。",
     usPhone: "美音",
-    ukPhone: "英音"
+    ukPhone: "英音",
+    updateAvailable: "有新版本可用",
+    updatePrompt: "检测到新版本，请前往以下地址下载安装：\nhttps://github.com/daife/lingua-lore/releases\n\n应用即将退出。",
+    updateTitle: "发现更新"
   },
   ja: {
     brand: "言の葉ロア",
@@ -179,7 +185,10 @@ export const translations = {
     translating: "翻訳中...",
     noTranslation: "翻訳が見つかりません。",
     usPhone: "米",
-    ukPhone: "英"
+    ukPhone: "英",
+    updateAvailable: "アップデートがあります",
+    updatePrompt: "新しいバージョンが利用可能です。以下からダウンロードしてインストールしてください：\nhttps://github.com/daife/lingua-lore/releases\n\nアプリを終了します。",
+    updateTitle: "アップデートのお知らせ"
   }
 } satisfies Record<AppLanguage, Record<string, string | ((value: string) => string)>>;
 

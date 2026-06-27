@@ -105,6 +105,11 @@ export interface WorldBootstrap {
   turns: StoryTurnResult[];
 }
 
+export interface CheckVersionResult {
+  has_update: boolean;
+  latest_version: string;
+}
+
 export interface TranslationResult {
   source_text: string;
   translated_text: string;

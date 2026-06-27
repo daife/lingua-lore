@@ -35,7 +35,9 @@ pub fn run() {
             commands::settings_commands::get_api_profile,
             commands::settings_commands::save_api_profile,
             commands::settings_commands::get_storage_info,
-            commands::translation_commands::translate_selection
+            commands::translation_commands::translate_selection,
+            commands::version_commands::check_version,
+            commands::version_commands::quit_app
         ])
         .run(tauri::generate_context!())
         .expect("error while running Lingua Lore");

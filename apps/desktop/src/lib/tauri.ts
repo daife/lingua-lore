@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import type {
   ApiProfile,
+  CheckVersionResult,
   CreateWorldRequest,
   GenerateWorldDraftRequest,
   StoryTurnPreview,
@@ -40,5 +41,7 @@ export const api = {
       context: payload.context ?? null,
       sourceLanguage: payload.sourceLanguage,
       targetLanguage: payload.targetLanguage
-    })
+    }),
+  checkVersion: () => invoke<CheckVersionResult>("check_version"),
+  quitApp: () => invoke<void>("quit_app")
 };
