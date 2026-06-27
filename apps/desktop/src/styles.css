@@ -74,13 +74,15 @@ button {
   padding: 18px;
   background: #ebe6db;
   border-right: 1px solid #d4cbbd;
-  overflow: auto;
   transition: transform 0.22s ease;
 }
 
 .sidebar {
   left: 0;
   width: var(--library-width);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   transform: translateX(0);
 }
 
@@ -98,6 +100,7 @@ button {
   width: var(--settings-width);
   border-right: 0;
   border-left: 1px solid #d4cbbd;
+  overflow: auto;
   transform: translateX(0);
 }
 
@@ -174,10 +177,17 @@ button {
   padding: 6px 10px;
 }
 
-.world-panel,
 .world-form,
 .settings-form {
   display: grid;
+  gap: 12px;
+}
+
+.world-panel {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
   gap: 12px;
 }
 
@@ -311,10 +321,12 @@ select:focus {
 
 .world-list {
   display: grid;
+  flex: 1;
   gap: 10px;
-  max-height: min(720px, 68vh);
+  min-height: 0;
   overflow-y: auto;
   padding-right: 4px;
+  padding-bottom: 4px;
 }
 
 .world-item {
@@ -646,23 +658,6 @@ select:focus {
   display: grid;
   gap: 6px;
   color: #6e665c;
-}
-
-.select-shell {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
-.select-shell svg {
-  position: absolute;
-  left: 12px;
-  color: #6e665c;
-  pointer-events: none;
-}
-
-.select-shell select {
-  padding-left: 38px;
 }
 
 .settings-status {

@@ -16,8 +16,8 @@ const WORLD_DRAFT_SCHEMA: &str = r#"{
   "title": "示例标题",
   "description": "A vivid one-paragraph premise with the central conflict, playable role, tone, and opening hook.",
   "genre": "玄幻 / xuanhuan fantasy",
-  "target_language": "English",
-  "language_level": "B1",
+  "target_language": "简体中文",
+  "language_level": "一般难度",
   "narrative_style": "immersive literary prose in the selected target language with interactive choice-driven pacing",
   "characters": [
     {
@@ -85,10 +85,11 @@ pub async fn generate_world_draft(
         request.genre.trim()
     };
     let target_language = if request.target_language.trim().is_empty() {
-        "English"
+        "简体中文"
     } else {
         request.target_language.trim()
     };
+    let difficulty_label = normal_difficulty_label(target_language);
     let request = ChatCompletionRequest {
             model: profile.model,
             messages: vec![
@@ -103,7 +104,8 @@ pub async fn generate_world_draft(
                     "Create one original world draft for this selected genre: {genre}.\n\
                      Use this target language for title, description, genre, and narrative_style: {target_language}.\n\
                      Generate 2 to 4 reusable characters. Character text should also use {target_language}, except stable ids are not needed.\n\
-                     Keep target_language exactly as {target_language} and language_level as B1.\n\
+                     Keep target_language exactly as {target_language}.\n\
+                     Fill language_level in {target_language} with the normal-difficulty meaning of \"一般难度\". Use this exact value when appropriate: {difficulty_label}.\n\
                      The generated description should be ready to use directly as the world's premise."
                 )),
             ],
@@ -246,9 +248,7 @@ fn normalize_world_draft(
         draft.genre = selected_genre.to_string();
     }
     draft.target_language = target_language.to_string();
-    if draft.language_level.trim().is_empty() {
-        draft.language_level = "B1".to_string();
-    }
+    draft.language_level = normal_difficulty_label(target_language);
     if draft.narrative_style.trim().is_empty() {
         draft.narrative_style =
             format!("immersive literary prose in {target_language} with clear B1-level pacing");
@@ -257,4 +257,39 @@ fn normalize_world_draft(
         draft.characters = crate::storage::default_characters(target_language);
     }
     draft
+}
+
+fn normal_difficulty_label(target_language: &str) -> String {
+    let normalized = target_language.trim().to_lowercase();
+    if normalized.contains("english") {
+        return "Normal difficulty".to_string();
+    }
+    if normalized.contains("日本") {
+        return "一般的な難易度".to_string();
+    }
+    if normalized.contains("한국") {
+        return "보통 난이도".to_string();
+    }
+    if normalized.contains("français") {
+        return "Difficulté normale".to_string();
+    }
+    if normalized.contains("deutsch") {
+        return "Normale Schwierigkeit".to_string();
+    }
+    if normalized.contains("español") {
+        return "Dificultad normal".to_string();
+    }
+    if normalized.contains("português") {
+        return "Dificuldade normal".to_string();
+    }
+    if normalized.contains("italiano") {
+        return "Difficoltà normale".to_string();
+    }
+    if normalized.contains("русский") {
+        return "Обычная сложность".to_string();
+    }
+    if normalized.contains("العربية") {
+        return "صعوبة عادية".to_string();
+    }
+    "一般难度".to_string()
 }

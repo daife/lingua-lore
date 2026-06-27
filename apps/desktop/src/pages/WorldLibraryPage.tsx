@@ -7,7 +7,7 @@ import { api } from "../lib/tauri";
 import type { CreateWorldRequest } from "../lib/types";
 import { useAppStore } from "../stores/useAppStore";
 
-interface DropdownProps {
+export interface DropdownProps {
   value: string;
   options: string[];
   onChange: (value: string) => void;
@@ -16,7 +16,7 @@ interface DropdownProps {
   allowFreeText?: boolean;
 }
 
-function Dropdown({ value, options, onChange, placeholder, disabled, allowFreeText = true }: DropdownProps) {
+export function Dropdown({ value, options, onChange, placeholder, disabled }: DropdownProps) {
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
@@ -101,8 +101,8 @@ const WORLD_GENRES = [
 ];
 
 const TARGET_LANGUAGES = [
-  "English",
   "简体中文",
+  "English",
   "繁體中文",
   "日本語",
   "한국어",
@@ -118,10 +118,10 @@ const TARGET_LANGUAGES = [
 const DEFAULT_WORLD_FORM: CreateWorldRequest = {
   title: "",
   description: "",
-  genre: "mystery fantasy",
-  target_language: "English",
-  language_level: "B1",
-  narrative_style: "immersive literary prose",
+  genre: "",
+  target_language: "",
+  language_level: "",
+  narrative_style: "",
   characters: []
 };
 
@@ -137,13 +137,13 @@ export function WorldLibraryPage() {
     setLibraryError
   } = useAppStore();
   const t = (key: Parameters<typeof translate>[1], value?: string) => translate(appLanguage, key, value);
-  const [openForm, setOpenForm] = useState(worlds.length === 0);
+  const [openForm, setOpenForm] = useState(false);
   const [creating, setCreating] = useState(false);
   const [drafting, setDrafting] = useState(false);
   const [showGenrePicker, setShowGenrePicker] = useState(false);
   const [genreInput, setGenreInput] = useState("");
   const [customGenre, setCustomGenre] = useState("");
-  const [selectedLanguage, setSelectedLanguage] = useState(DEFAULT_WORLD_FORM.target_language);
+  const [selectedLanguage, setSelectedLanguage] = useState(TARGET_LANGUAGES[0]);
   const [formValues, setFormValues] = useState<CreateWorldRequest>(DEFAULT_WORLD_FORM);
 
   async function openWorld(worldId: string) {
@@ -205,7 +205,10 @@ export function WorldLibraryPage() {
         genre,
         target_language: selectedLanguage
       });
-      setFormValues(draft);
+      setFormValues({
+        ...draft,
+        language_level: normalDifficultyLabel(selectedLanguage)
+      });
       setShowGenrePicker(false);
       setCustomGenre("");
     } catch (err) {
@@ -390,4 +393,39 @@ function safeZipName(title: string) {
   const fallback = "world";
   const safe = title.trim().replace(/[<>:"/\\|?*\u0000-\u001f]/g, "-").replace(/\s+/g, " ");
   return safe || fallback;
+}
+
+function normalDifficultyLabel(targetLanguage: string) {
+  const normalized = targetLanguage.trim().toLowerCase();
+  if (normalized.includes("english")) {
+    return "Normal difficulty";
+  }
+  if (normalized.includes("日本")) {
+    return "一般的な難易度";
+  }
+  if (normalized.includes("한국")) {
+    return "보통 난이도";
+  }
+  if (normalized.includes("français")) {
+    return "Difficulté normale";
+  }
+  if (normalized.includes("deutsch")) {
+    return "Normale Schwierigkeit";
+  }
+  if (normalized.includes("español")) {
+    return "Dificultad normal";
+  }
+  if (normalized.includes("português")) {
+    return "Dificuldade normal";
+  }
+  if (normalized.includes("italiano")) {
+    return "Difficoltà normale";
+  }
+  if (normalized.includes("русский")) {
+    return "Обычная сложность";
+  }
+  if (normalized.includes("العربية")) {
+    return "صعوبة عادية";
+  }
+  return "一般难度";
 }

@@ -1,11 +1,12 @@
 import { FormEvent, useEffect, useState } from "react";
-import { Download, Languages, Save, Zap } from "lucide-react";
+import { Download, Save, Zap } from "lucide-react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { readFile } from "@tauri-apps/plugin-fs";
 import { APP_LANGUAGE_OPTIONS, translate, type AppLanguage } from "../lib/i18n";
 import { api } from "../lib/tauri";
 import { useAppStore } from "../stores/useAppStore";
 import type { ApiProfile } from "../lib/types";
+import { Dropdown } from "./WorldLibraryPage";
 
 const DEFAULT_PROFILE: ApiProfile = {
   id: "",
@@ -81,6 +82,8 @@ export function SettingsPanel() {
   }
 
   const profile = apiProfile ?? DEFAULT_PROFILE;
+  const selectedLanguageLabel =
+    APP_LANGUAGE_OPTIONS.find((option) => option.value === appLanguage)?.label ?? APP_LANGUAGE_OPTIONS[0].label;
 
   return (
     <form className="settings-form" onSubmit={save}>
@@ -106,19 +109,18 @@ export function SettingsPanel() {
       </button>
       <label>
         {t("appLanguage")}
-        <span className="select-shell">
-          <Languages size={16} />
-          <select
-            value={appLanguage}
-            onChange={(event) => setAppLanguage(event.target.value as AppLanguage)}
-          >
-            {APP_LANGUAGE_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </span>
+        <Dropdown
+          value={selectedLanguageLabel}
+          options={APP_LANGUAGE_OPTIONS.map((option) => option.label)}
+          onChange={(label) => {
+            const option = APP_LANGUAGE_OPTIONS.find((item) => item.label === label);
+            if (option) {
+              setAppLanguage(option.value as AppLanguage);
+            }
+          }}
+          placeholder={t("appLanguage")}
+          allowFreeText={false}
+        />
       </label>
       <button
         className={quickMode ? "quick-mode-toggle active" : "quick-mode-toggle"}

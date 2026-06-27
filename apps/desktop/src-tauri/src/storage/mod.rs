@@ -300,7 +300,11 @@ fn import_world_record_from_db(
 }
 
 fn unique_slug(conn: &Connection, slug: &str) -> Result<String> {
-    let base = if slug.trim().is_empty() { "world" } else { slug };
+    let base = if slug.trim().is_empty() {
+        "world"
+    } else {
+        slug
+    };
     let mut candidate = base.to_string();
     let mut suffix = 2;
     loop {

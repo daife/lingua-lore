@@ -1,8 +1,8 @@
 export type AppLanguage = "en" | "zh" | "ja";
 
 export const APP_LANGUAGE_OPTIONS: Array<{ value: AppLanguage; label: string }> = [
-  { value: "en", label: "English" },
   { value: "zh", label: "中文" },
+  { value: "en", label: "English" },
   { value: "ja", label: "日本語" }
 ];
 
@@ -207,5 +207,5 @@ export function defaultAppLanguage(): AppLanguage {
   if (stored === "zh" || stored === "ja" || stored === "en") {
     return stored;
   }
-  return "en";
+  return "zh";
 }
