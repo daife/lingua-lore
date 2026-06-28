@@ -1,4 +1,4 @@
-import { FormEvent, MouseEvent, UIEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, UIEvent, useEffect, useRef, useState } from "react";
 import { Loader2, Send, Wand2 } from "lucide-react";
 import { translate } from "../lib/i18n";
 import { supportedTranslationLanguageForSource } from "../lib/languages";
@@ -8,9 +8,7 @@ import type { ChoiceOutput, StoryTurnInput, StoryTurnPreview, TranslationResult 
 import { useAppStore } from "../stores/useAppStore";
 
 const BEGIN_STORY_ACTION = "Begin the story with a vivid opening scene.";
-const SELECTION_SETTLE_DELAY_MS = 220;
-const TOUCH_SELECTION_PROBE_MS = 900;
-const TOUCH_SELECTION_PROBE_INTERVAL_MS = 120;
+const SELECTION_SETTLE_DELAY_MS = 320;
 const TRANSLATION_TIMEOUT_MS = 5000;
 
 interface PreviewCacheEntry {
@@ -40,8 +38,6 @@ export function ReaderPage() {
   const turnPositionTimerRef = useRef<number | null>(null);
   const selectionTimerRef = useRef<number | null>(null);
   const selectionGenerationRef = useRef(0);
-  const selectionPointerDownRef = useRef(false);
-  const pendingSelectionChangeRef = useRef(false);
   const lastTranslatedSelectionKeyRef = useRef("");
   const previewCacheRef = useRef<Map<string, PreviewCacheEntry>>(new Map());
   const [selection, setSelection] = useState<SelectionSnapshot | null>(null);
@@ -84,10 +80,7 @@ export function ReaderPage() {
       return;
     }
     const handleSelectionChange = () => {
-      pendingSelectionChangeRef.current = true;
-      if (!selectionPointerDownRef.current) {
-        queueSelectionTranslation(SELECTION_SETTLE_DELAY_MS);
-      }
+      queueSelectionTranslation(SELECTION_SETTLE_DELAY_MS);
     };
     document.addEventListener("selectionchange", handleSelectionChange);
     return () => document.removeEventListener("selectionchange", handleSelectionChange);
@@ -260,32 +253,27 @@ export function ReaderPage() {
     viewport.scrollTo({ top: targetTop, behavior: "smooth" });
   }
 
-  function queueSelectionTranslation(delayMs = 0, probeUntilMs = 0) {
+  function queueSelectionTranslation(delayMs = 0) {
     if (selectionTimerRef.current) {
       window.clearTimeout(selectionTimerRef.current);
     }
     const generation = selectionGenerationRef.current + 1;
     selectionGenerationRef.current = generation;
     setTranslating(false);
-    scheduleSelectionTranslation(generation, delayMs, probeUntilMs ? Date.now() + probeUntilMs : 0);
+    scheduleSelectionTranslation(generation, delayMs);
   }
 
-  function scheduleSelectionTranslation(generation: number, delayMs: number, probeUntilTime: number) {
+  function scheduleSelectionTranslation(generation: number, delayMs: number) {
     selectionTimerRef.current = window.setTimeout(() => {
-      pendingSelectionChangeRef.current = false;
-      void translateCurrentSelection(generation, probeUntilTime);
+      void translateCurrentSelection(generation);
     }, delayMs);
   }
 
-  async function translateCurrentSelection(generation: number, probeUntilTime = 0) {
+  async function translateCurrentSelection(generation: number) {
     if (selectionGenerationRef.current !== generation) {
       return;
     }
     const snapshot = readSelectionSnapshot(storyRef.current);
-    if (!snapshot && probeUntilTime > Date.now()) {
-      scheduleSelectionTranslation(generation, TOUCH_SELECTION_PROBE_INTERVAL_MS, probeUntilTime);
-      return;
-    }
     const selectionKey = snapshot ? `${snapshot.text}|${Math.round(snapshot.x)}|${Math.round(snapshot.y)}` : "";
     if (selectionKey && selectionKey === lastTranslatedSelectionKeyRef.current && translation) {
       return;
@@ -338,51 +326,6 @@ export function ReaderPage() {
     });
   }
 
-  function handleSelectionPointerDown() {
-    selectionPointerDownRef.current = true;
-    pendingSelectionChangeRef.current = false;
-    selectionGenerationRef.current += 1;
-    setTranslating(false);
-    if (selectionTimerRef.current) {
-      window.clearTimeout(selectionTimerRef.current);
-    }
-  }
-
-  function handleSelectionPointerUp() {
-    selectionPointerDownRef.current = false;
-    if (pendingSelectionChangeRef.current || readSelectionSnapshot(storyRef.current)) {
-      queueSelectionTranslation(SELECTION_SETTLE_DELAY_MS);
-    }
-  }
-
-  function handleMouseUp(_event: MouseEvent) {
-    handleSelectionPointerUp();
-  }
-
-  function handleTouchEnd() {
-    selectionPointerDownRef.current = false;
-    queueSelectionTranslation(SELECTION_SETTLE_DELAY_MS, TOUCH_SELECTION_PROBE_MS);
-  }
-
-  function handleTouchCancel() {
-    selectionPointerDownRef.current = false;
-    pendingSelectionChangeRef.current = false;
-  }
-
-  function handleMouseDown() {
-    handleSelectionPointerDown();
-  }
-
-  function handleTouchStart() {
-    handleSelectionPointerDown();
-  }
-
-  function handlePointerLeave() {
-    if (selectionPointerDownRef.current) {
-      handleSelectionPointerUp();
-    }
-  }
-
   return (
     <div className="reader-page">
       <header className="story-header">
@@ -395,12 +338,6 @@ export function ReaderPage() {
       <div
         className="story-viewport"
         ref={storyRef}
-        onMouseDown={handleMouseDown}
-        onMouseLeave={handlePointerLeave}
-        onMouseUp={handleMouseUp}
-        onTouchCancel={handleTouchCancel}
-        onTouchEnd={handleTouchEnd}
-        onTouchStart={handleTouchStart}
         onScroll={handleStoryScroll}
       >
         {storyStarted ? (
