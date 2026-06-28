@@ -84,7 +84,7 @@ export const translations = {
     worlds: "世界",
     settingsAndStatus: "设置与状态",
     settings: "设置",
-    emptyReader: "创建或打开一个世界即可开始。",
+    emptyReader: "试试在顶部左右滑动。",
     dismiss: "关闭",
     name: "名称",
     baseUrl: "基础 URL",

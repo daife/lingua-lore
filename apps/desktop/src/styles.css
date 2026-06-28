@@ -171,7 +171,7 @@ button {
 
 .theme-toggle {
   position: absolute;
-  top: 31px;
+  top: 34px;
   right: 22px;
   z-index: 18;
   display: inline-grid;
@@ -782,7 +782,7 @@ select:focus {
   }
 
   .theme-toggle {
-    top: 22px;
+    top: 24px;
     right: 14px;
     width: 32px;
     height: 32px;
