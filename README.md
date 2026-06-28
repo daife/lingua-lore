@@ -4,7 +4,7 @@
 
 ---
 
-A desktop and mobile app for immersive foreign-language story reading.
+Lingua Lore is a Tauri desktop app for immersive foreign-language interactive fiction. The runtime is built around local SQLite state, DeepSeek-compatible chat completions, structured JSON story turns, and a small read-only tool layer that lets the model look up durable world facts without writing to storage directly.
 
 ### Product Names
 
@@ -14,80 +14,133 @@ A desktop and mobile app for immersive foreign-language story reading.
 | Chinese (简体中文) | 语境传说 |
 | Japanese (日本語) | 言の葉ロア |
 
-## Why Lingua Lore?
+## Runtime At A Glance
 
-Every interactive story engine faces the same wall: **the LLM forgets**. Characters lose their accent mid-conversation, the plot derails, the world's own rules dissolve into thin air.
+![Lingua Lore runtime overview](docs/images/runtime-overview.png)
 
-Lingua Lore was built from the ground up to solve this — not with fragile prompt hacks, but with a **persistent memory architecture** baked into every story turn.
+The app has two levels of storage:
 
-### 🧠 Persistent Memory & Anti-Amnesia Core
+- `app.db` stores the world library and API profiles.
+- Each world has its own `world.db` under the app data directory. That database stores the world profile, scenes, characters, messages, turns, branch choices, story state, memories, and relationship state.
 
-- **Structured memory candidates**: Every turn surfaces memory candidates — key events, character observations, world-state changes — that Rust validates and commits in a single ACID transaction.
-- **Relationship tracking with delta system**: Character relationships evolve dimensionally (trust, familiarity, affection). Each interaction records a delta + reason, so the LLM never has to guess who trusts whom or why.
-- **Scene-aware context loading**: The runtime doesn't dump the entire history — it loads only what's relevant to the current scene, keeping context windows lean and responses sharp.
-- **Turn-summary anchoring**: Every response includes a compressed `turn_summary` that future turns consume as anchoring context, creating a closed-loop memory chain.
+World draft generation, world creation, story preview, and story commit are separate operations. This separation matters: previewing a story turn can call the LLM and read tools, but it does not write the generated turn to the world database until the frontend sends the preview back to `commit_story_turn_preview`.
 
-### 👥 Character System That Lives
+## World Generation And Initialization
 
-Characters aren't decorative tags. Each one carries:
-- **Personality, background, speaking style** — defining how they react, not just what they say
-- **Dynamic relationship dimensions** that change with player choices
-- **Memory of past interactions** — referenced by the LLM across turns
-- **Player-character support** — step into the story as yourself, not a puppet
+The "AI fill" flow calls `generate_world_draft`. It loads the latest saved API profile, sends a schema-constrained chat completion request, and asks for a single `CreateWorldRequest` JSON object. This draft generator does not register tools. It retries model requests up to 4 times and can ask the model to repair invalid draft JSON.
 
-Your choices leave real traces. Characters remember what you did. The world bends around your decisions, not the other way around.
+The draft is only form data. A world is actually initialized when `create_world` persists the request:
 
-### 🎮 Immersive on Purpose
+- A new row is inserted into `app.db.worlds`.
+- A dedicated world directory and `world.db` are created.
+- The world database migration is applied.
+- `world_profile` is seeded from the request.
+- One opening scene is inserted with objective `Initialize the story`.
+- `story_state.scene.current` points to that opening scene.
+- Exactly one player character is required. The player character is stored as `char_player`.
+- Any non-player seed characters, if present, start with `trust = 0`; the current UI normally submits only the player character.
 
-- **Choice-driven narrative** with exactly three curated options per turn, each tagged with intent and risk level
-- **Free-text input** for when the presets don't fit — the LLM interprets your action in-world
-- **Selection translation** uses Youdao's public dictionary endpoint for Chinese, English, Japanese, and Korean dictionary pairs, and never pollutes or inflates the LLM story context
-- **Quick mode** for deeper, more coherent generation at higher token cost
-- **Auto version check** on startup — never miss an update
+Opening an existing world calls `get_world_bootstrap`. It loads the world record, finds `story_state.scene.current` or falls back to the first scene, and reconstructs prior turns from `turns`, `messages`, and `branch_choices`.
 
-Lingua Lore isn't a chat wrapper with a fantasy skin. It's a **stateful narrative engine** where every turn strengthens the story's internal consistency.
+## Story Turn Runtime
 
-## Roadmap
+![Lingua Lore story turn runtime](docs/images/story-turn-runtime.png)
 
-### ✅ Completed
+The reader starts the first turn by sending the free-text action `Initialize the story with a vivid opening scene.` Later turns are either a selected branch choice or free text.
 
-- [x] World creation, opening, deletion, export, and import
-- [x] AI-assisted world draft generation
-- [x] Immersive story reading experience
-- [x] Branching choice-driven narrative
-- [x] Free-text action input
-- [x] Independent multilingual selection translation (Youdao dictionary pairs for Chinese, English, Japanese, and Korean)
-- [x] World export / import (ZIP format)
-- [x] Multiple API profile support
-- [x] Quick mode (higher quality, higher token cost)
-- [x] Multilingual UI (English / 中文 / 日本語)
-- [x] Windows (MSI + NSIS) and Android (APK) builds
-- [x] Automatic version update check on startup
+The normal path is:
 
-### 🚧 In Progress
+1. Frontend calls `preview_story_turn`.
+2. Rust loads context from `world.db`.
+3. Rust builds a system message and a user message.
+4. DeepSeek is called with JSON output enabled and read-only tools available.
+5. If the model asks for tools, Rust executes the requested read-only SQLite queries and appends the tool results back into the message list.
+6. When the model returns content, Rust parses it as `TurnOutput` and validates it.
+7. If parsing or validation fails, Rust appends a repair instruction and retries the turn.
+8. A valid preview is returned to the frontend without committing database writes.
+9. Frontend calls `commit_story_turn_preview`.
+10. Rust validates again and writes the turn in one SQLite transaction.
 
-- [ ] Character relationship viewer
-- [ ] Thinking mode support
-- [ ] Reference mode (upload novel as reference material)
-- [ ] Custom character cards
-- [ ] Progress rollback
+Runtime limits in code:
+
+| Area | Limit |
+|---|---:|
+| Model request retries | 4 |
+| Turn repair attempts | 4 |
+| Tool rounds per preview | 3 |
+| Total tool calls per preview | 8 |
+| Recent messages loaded | 12 |
+| Recent summaries loaded | 8 |
+| Characters loaded into prompt | 12 |
+| Story state rows loaded | 80 |
+| Relationship rows loaded | 80 |
+
+## Context, Tools, And Memory
+
+`load_context` reads a compact snapshot:
+
+- World profile: title, description, genre, target language, level, narrative style.
+- Current scene: title, location, mood, current objective.
+- Characters, with the player first.
+- Story state key-values.
+- Relationship state.
+- Recent scene messages.
+- Recent scene turn summaries.
+- Current user action, resolved from either free text or the selected branch choice.
+
+The model receives three optional read-only tools:
+
+| Tool | What it reads |
+|---|---|
+| `query_character_profile` | One character profile by `character_id` |
+| `query_character_memory` | Promoted memories for one character, matched with SQL `LIKE` |
+| `query_past_events` | Prior turn summaries matched with SQL `LIKE` |
+
+These tools are not agents and not write tools. They return JSON rows from SQLite. There is no vector database or embedding retrieval in the current code.
+
+Memory is created during commit:
+
+- The model emits `memory_candidates`.
+- Rust records every candidate in `memory_candidates`.
+- A candidate is promoted into `memories` only when `importance >= 7` and the referenced character already exists.
+- Tool calls can later retrieve promoted memories through `query_character_memory`.
+
+Relationship state is also committed from model output:
+
+- Each relationship update must reference an existing character.
+- Deltas are limited to `-2..2`.
+- Stored relationship values are clamped to `-100..100`.
+- Every applied update is logged in `relationship_update_logs`.
+
+## Commit Semantics
+
+`commit_turn` runs inside one SQLite transaction. It:
+
+- Marks the selected prior branch choice as selected, when the input is a choice.
+- Inserts the user message and assistant story message.
+- Inserts the `turns` row with the raw model JSON.
+- Updates the current scene status and summary.
+- Inserts the next three branch choices and assigns stable choice IDs.
+- Applies allowed story state updates and logs them.
+- Inserts durable new NPCs if their names are not duplicates.
+- Records memory candidates and promotes high-importance valid memories.
+- Applies relationship deltas and logs them.
+
+Validation happens before commit. A story turn must include non-empty narration, exactly three choices labeled `A`, `B`, `C`, valid risk levels, allowed story-state keys, memory importance from `1` to `10`, and relationship deltas from `-2` to `2`.
+
+## Reader Behavior
+
+Quick mode does not change the model, prompt, temperature, or validation rules. In the current frontend it prefetches previews for all available choice IDs after a turn. If the player selects a prefetched choice, the app commits that cached preview instead of waiting for a fresh generation. This feels faster, but it can spend more model calls because unused branches may be generated.
+
+Selection translation is independent of the story runtime. Highlighted text is sent to the translation provider with nearby context, and the result is shown in a popover. It does not enter the story prompt or mutate world state.
 
 ## Stack
 
 - Tauri + Rust backend
 - React + Vite frontend
 - SQLite storage
-- DeepSeek Chat Completions with an OpenAI-compatible API shape
+- DeepSeek Chat Completions with an OpenAI-compatible request shape
 - Youdao public dictionary endpoint for independent selection translation
-
-## Core Runtime
-
-- LLM story generation uses JSON Output.
-- Tool calls are optional and read-only.
-- Every story turn must return narration, dialogues, summary, scene status, exactly three choices, state update candidates, memory candidates, and relationship updates.
-- Rust validates final JSON and commits all writes in one transaction.
-- Selection translation never enters LLM context.
-- World export/import uses a zip package containing `manifest.json` and `world.db`.
 
 ## Setup
 
@@ -177,29 +230,9 @@ Releases are published from local build artifacts. GitHub Actions remote builds 
    | `apps/desktop/src-tauri/tauri.conf.json` | `version` |
    | `apps/desktop/src-tauri/gen/android/app/tauri.properties` | `versionName` + `versionCode` |
 
-   > ⚠️ Android `tauri.properties` is auto-generated — edit it directly before the Android build.
+   > Android `tauri.properties` is auto-generated. Edit it directly before the Android build.
 
-2. **Configure Android APK signing** (one-time). Add a `signingConfigs` block to `apps/desktop/src-tauri/gen/android/app/build.gradle.kts`:
-
-   ```kotlin
-   signingConfigs {
-       create("release") {
-           storeFile = file("../lingua-lore-test.keystore")
-           storePassword = "android"
-           keyAlias = "lingua-lore-test"
-           keyPassword = "android"
-       }
-   }
-   ```
-
-   Then reference it in the `release` build type:
-
-   ```kotlin
-   getByName("release") {
-       signingConfig = signingConfigs.getByName("release")
-       // ...
-   }
-   ```
+2. **Configure Android APK signing** once in `apps/desktop/src-tauri/gen/android/app/build.gradle.kts`.
 
 3. **Run checks:**
 
@@ -208,7 +241,7 @@ Releases are published from local build artifacts. GitHub Actions remote builds 
    cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml
    ```
 
-4. **Commit everything** (code changes + version bumps in one commit):
+4. **Commit everything**:
 
    ```powershell
    git add .
@@ -223,24 +256,4 @@ Releases are published from local build artifacts. GitHub Actions remote builds 
    npm --workspace @lingua-lore/desktop run tauri -- android build --apk --target aarch64
    ```
 
-6. **Rename the Android APK** to the release naming convention:
-
-   ```powershell
-   copy apps/desktop/src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk "apps/desktop/src-tauri/gen/android/app/build/outputs/apk/universal/release/Lingua Lore_0.1.x_android-arm64.apk"
-   ```
-
-7. **Tag and push:**
-
-   ```powershell
-   git tag v0.1.x
-   git push origin v0.1.x
-   ```
-
-8. **Create the GitHub release** with explicit artifact paths:
-
-   ```powershell
-   $msi = "apps/desktop/src-tauri/target/release/bundle/msi/Lingua Lore_0.1.x_x64_en-US.msi"
-   $exe = "apps/desktop/src-tauri/target/release/bundle/nsis/Lingua Lore_0.1.x_x64-setup.exe"
-   $apk = "apps/desktop/src-tauri/gen/android/app/build/outputs/apk/universal/release/Lingua Lore_0.1.x_android-arm64.apk"
-   gh release create v0.1.x --title "Lingua Lore v0.1.x" --notes "Local release notes." "$msi" "$exe" "$apk"
-   ```
+6. **Tag and publish from explicit local artifact paths.**

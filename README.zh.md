@@ -4,7 +4,7 @@
 
 ---
 
-一款用于沉浸式外语故事阅读的桌面和移动端应用。
+语境传说是一款用于沉浸式外语互动阅读的 Tauri 桌面应用。当前运行机制的核心不是“聊天框套故事皮肤”，而是本地 SQLite 状态、DeepSeek 兼容 Chat Completions、结构化 JSON 故事回合，以及一层只能读取世界资料的 LLM 工具系统。
 
 ### 产品名称
 
@@ -14,80 +14,133 @@
 | 简体中文 | 语境传说 |
 | 日本語 | 言の葉ロア |
 
-## 为什么选择语境传说？
+## 运行总览
 
-每一个互动故事引擎都面临着同一堵墙：**LLM 会失忆**。角色说着说着就变了口音，剧情走到半路突然跑偏，世界设定在几句话后灰飞烟灭。
+![语境传说运行总览](docs/images/runtime-overview.png)
 
-语境传说从一开始就是为了解决这个问题而构建的——不是靠脆弱的提示词补丁，而是靠一道**持久化记忆架构**深植于每一个故事回合之中。
+应用有两级存储：
 
-### 🧠 持久记忆与反失忆核心
+- `app.db` 保存世界列表和 API 配置。
+- 每个世界都有独立的 `world.db`，位于应用数据目录下。它保存世界档案、场景、角色、消息、回合、分支选项、故事状态、记忆和关系状态。
 
-- **结构化记忆候选**：每一回合都会产出一组记忆候选——关键事件、角色观察、世界状态变化——由 Rust 端校验后在一个 ACID 事务中全部提交。
-- **维度化关系追踪**：角色关系沿多个维度（信任、熟悉度、好感度）动态演变。每次交互记录变化量 + 原因，LLM 再也不用猜测谁信任谁、为什么信任。
-- **场景感知上下文加载**：运行时不会倾泻整个历史——只加载当前场景相关的内容，保持上下文窗口精悍、回复犀利。
-- **回合摘要锚定**：每次回复都包含一份压缩的 `turn_summary`，作为后续回合的锚定上下文，形成闭环记忆链。
+世界草稿生成、世界创建、故事回合预览、故事回合提交是四件不同的事。这个边界很重要：`preview_story_turn` 可以调用 LLM 和只读工具，但不会把生成结果写入世界数据库；只有前端把 preview 发回 `commit_story_turn_preview` 后，Rust 才会提交数据库事务。
 
-### 👥 活着的人物系统
+## 世界生成与初始化
 
-角色不是装饰标签。每个角色都携带：
-- **性格、背景、说话风格**——定义了他们的反应方式，而不仅仅是说了什么
-- **随玩家选择动态变化的关系维度**
-- **对过往交互的记忆**——LLM 在跨回合之间可以引用
-- **玩家角色支持**——以你自己的身份踏入故事，而不是提线木偶
+“AI 填写”调用的是 `generate_world_draft`。它读取最新保存的 API 配置，向模型发送带 schema 要求的 Chat Completions 请求，并要求返回一个 `CreateWorldRequest` JSON 对象。这个世界草稿生成器不注册工具。模型请求最多重试 4 次；如果草稿 JSON 不合法，会追加修复提示让模型重新输出。
 
-你的选择会留下真正的痕迹。角色记得你做过什么。世界因你的决策而改变，而不是反过来。
+草稿只是表单数据。真正创建世界发生在 `create_world`：
 
-### 🎮 全方位沉浸体验
+- 在 `app.db.worlds` 中插入一个世界记录。
+- 创建独立世界目录和 `world.db`。
+- 对世界数据库执行 migration。
+- 将请求内容写入 `world_profile`。
+- 创建一个开场场景，目标是 `Initialize the story`。
+- 写入 `story_state.scene.current`，指向这个开场场景。
+- 必须且只能有一个玩家角色，玩家角色固定存为 `char_player`。
+- 如果请求中带有非玩家初始角色，它们的 `trust` 初始值为 `0`；当前前端通常只提交玩家角色。
 
-- **分支选择叙事**：每回合精确给出三个选项，每个都标注意图和风险等级
-- **自由文本输入**：当预设选项不够用时，LLM 会在世界中解释你的行动
-- **独立划词翻译**：使用有道词典公共接口，支持中英日韩词典语言对，翻译在 LLM 上下文之外运行，绝不污染或膨胀故事状态
-- **快速模式**：消耗更多 token，换取更深层、更连贯的生成
-- **启动版本检测**：永远不错过任何更新
+打开已有世界时，`get_world_bootstrap` 会读取世界记录，优先使用 `story_state.scene.current` 找当前场景，找不到时退回第一个场景，并从 `turns`、`messages`、`branch_choices` 重建历史回合。
 
-语境传说不是给聊天框套了一层奇幻皮肤。它是一个**有状态的故事引擎**，每一个回合都在强化故事的内在一致性。
+## 故事回合运行方式
 
-## 开发路线图
+![语境传说故事回合运行](docs/images/story-turn-runtime.png)
 
-### ✅ 已完成
+阅读器的第一回合会发送自由文本动作：`Initialize the story with a vivid opening scene.` 后续回合可以来自分支选择，也可以来自玩家自由输入。
 
-- [x] 世界创建、打开、删除与导入 / 导出
-- [x] AI 辅助世界草稿生成
-- [x] 沉浸式故事阅读体验
-- [x] 分支选择式互动叙事
-- [x] 自由文本行动输入
-- [x] 独立多语种划词翻译（有道词典：中英日韩词典语言对）
-- [x] 世界导出 / 导入（ZIP 格式）
-- [x] 多 API 配置支持
-- [x] 快速模式（更高品质，更高 token 消耗）
-- [x] 多语言界面（简体中文 / English / 日本語）
-- [x] Windows（MSI + NSIS）及 Android（APK）构建
-- [x] 启动时自动版本更新检测
+正常流程如下：
 
-### 🚧 规划中
+1. 前端调用 `preview_story_turn`。
+2. Rust 从 `world.db` 装载上下文。
+3. Rust 构造 system message 和 user message。
+4. 调用 DeepSeek，请求 JSON 输出，并提供只读工具。
+5. 如果模型请求工具，Rust 执行对应的只读 SQLite 查询，并把工具结果追加回消息列表。
+6. 模型返回正文后，Rust 将其解析为 `TurnOutput` 并校验。
+7. 如果解析或校验失败，Rust 追加修复提示并重试本回合。
+8. 校验通过后，preview 返回给前端，此时还没有写数据库。
+9. 前端调用 `commit_story_turn_preview`。
+10. Rust 再次校验，并在一个 SQLite 事务中写入本回合。
 
-- [ ] 人物关系查看
-- [ ] 思考模式支持
-- [ ] 参考模式支持（上传小说作为参考素材）
-- [ ] 自定义角色卡片
-- [ ] 进度回退
+代码里的主要限制：
+
+| 区域 | 限制 |
+|---|---:|
+| 模型请求重试 | 4 |
+| 回合修复尝试 | 4 |
+| 单次 preview 工具轮数 | 3 |
+| 单次 preview 工具调用总数 | 8 |
+| 装载最近消息 | 12 |
+| 装载最近摘要 | 8 |
+| 写入 prompt 的角色数 | 12 |
+| 装载故事状态行数 | 80 |
+| 装载关系状态行数 | 80 |
+
+## 上下文、工具与记忆
+
+`load_context` 会读取一个紧凑快照：
+
+- 世界档案：标题、简介、类型、目标语言、语言等级、叙事风格。
+- 当前场景：标题、地点、氛围、当前目标。
+- 角色列表，玩家角色排在前面。
+- 故事状态键值。
+- 关系状态。
+- 当前场景最近消息。
+- 当前场景最近回合摘要。
+- 本次用户行动，也就是自由文本或被选中的分支选项文本。
+
+模型可用的只读工具只有三个：
+
+| 工具 | 读取内容 |
+|---|---|
+| `query_character_profile` | 按 `character_id` 查询一个角色档案 |
+| `query_character_memory` | 按角色和 SQL `LIKE` 查询已晋升记忆 |
+| `query_past_events` | 按 SQL `LIKE` 查询历史回合摘要 |
+
+这些工具不是代理，也不能写库。它们只是从 SQLite 返回 JSON 行。当前代码里没有向量数据库，也没有 embedding 检索。
+
+记忆是在提交阶段形成的：
+
+- 模型输出 `memory_candidates`。
+- Rust 会把所有候选写入 `memory_candidates`。
+- 只有当 `importance >= 7` 且引用的角色已经存在时，候选才会晋升写入 `memories`。
+- 后续工具调用可以通过 `query_character_memory` 读回已晋升记忆。
+
+关系状态也来自模型输出，但由 Rust 控制提交：
+
+- 每条关系更新必须引用已存在角色。
+- 单次 delta 限制在 `-2..2`。
+- 存储后的关系值会限制在 `-100..100`。
+- 每条已应用更新都会写入 `relationship_update_logs`。
+
+## 提交语义
+
+`commit_turn` 在一个 SQLite 事务中完成所有写入：
+
+- 如果输入来自分支选择，将旧分支选项标记为已选择。
+- 插入用户消息和助手故事消息。
+- 插入 `turns` 行，并保存模型原始 JSON。
+- 更新当前场景状态和摘要。
+- 插入下一轮三个分支选项，并分配稳定 choice ID。
+- 应用允许的故事状态更新，并写日志。
+- 插入重要的新 NPC；如果同名角色已存在则跳过。
+- 记录记忆候选，并晋升高重要度且有效的记忆。
+- 应用关系 delta，并写日志。
+
+提交前会先校验。一个故事回合必须包含非空叙述、严格三个 `A` / `B` / `C` 选项、合法风险等级、允许的故事状态 key、`1..10` 的记忆重要度，以及 `-2..2` 的关系变化量。
+
+## 阅读器行为
+
+快速模式不会改变模型、prompt、temperature 或校验规则。当前前端实现是在已有 choice ID 时，提前为所有可选分支请求 preview；如果玩家点中了已经预取的选项，就直接提交缓存 preview，而不是等待新生成。因此它会让选择后的响应更快，但可能消耗更多模型请求，因为未选择的分支也可能已经生成。
+
+划词翻译独立于故事运行时。被选中的文本会带着附近上下文发给翻译 provider，结果显示在浮层里。它不会进入故事 prompt，也不会修改世界状态。
 
 ## 技术栈
 
 - Tauri + Rust 后端
 - React + Vite 前端
 - SQLite 存储
-- DeepSeek Chat Completions（兼容 OpenAI API）
+- DeepSeek Chat Completions（兼容 OpenAI 请求结构）
 - 有道词典公共接口（独立划词翻译）
-
-## 核心运行机制
-
-- LLM 故事生成使用 JSON Output 模式
-- 工具调用为可选且只读
-- 每个故事回合必须返回：叙述、对话、摘要、场景状态、三个选择、状态更新候选、记忆候选、关系更新
-- Rust 端校验最终 JSON 并在单个事务内提交所有写入
-- 划词翻译不进入 LLM 上下文
-- 世界导出/导入使用 ZIP 包，包含 `manifest.json` 和 `world.db`
 
 ## 环境配置
 
@@ -177,29 +230,9 @@ apps/desktop/src-tauri/gen/android/app/build/outputs/apk/universal/release/
    | `apps/desktop/src-tauri/tauri.conf.json` | `version` |
    | `apps/desktop/src-tauri/gen/android/app/tauri.properties` | `versionName` + `versionCode` |
 
-   > ⚠️ Android `tauri.properties` 是自动生成文件，需要在构建前手动编辑。
+   > Android `tauri.properties` 是自动生成文件，需要在构建前手动编辑。
 
-2. **配置 Android APK 签名**（一次性）。在 `apps/desktop/src-tauri/gen/android/app/build.gradle.kts` 中添加：
-
-   ```kotlin
-   signingConfigs {
-       create("release") {
-           storeFile = file("../lingua-lore-test.keystore")
-           storePassword = "android"
-           keyAlias = "lingua-lore-test"
-           keyPassword = "android"
-       }
-   }
-   ```
-
-   然后在 `release` 构建类型中引用：
-
-   ```kotlin
-   getByName("release") {
-       signingConfig = signingConfigs.getByName("release")
-       // ...
-   }
-   ```
+2. **配置 Android APK 签名**：在 `apps/desktop/src-tauri/gen/android/app/build.gradle.kts` 中配置 release signing。
 
 3. **运行检查：**
 
@@ -208,7 +241,7 @@ apps/desktop/src-tauri/gen/android/app/build/outputs/apk/universal/release/
    cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml
    ```
 
-4. **提交所有修改**（代码 + 版本号在同一 commit）：
+4. **提交所有修改**：
 
    ```powershell
    git add .
@@ -223,24 +256,4 @@ apps/desktop/src-tauri/gen/android/app/build/outputs/apk/universal/release/
    npm --workspace @lingua-lore/desktop run tauri -- android build --apk --target aarch64
    ```
 
-6. **重命名 Android APK** 为发布命名规范：
-
-   ```powershell
-   copy apps/desktop/src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk "apps/desktop/src-tauri/gen/android/app/build/outputs/apk/universal/release/Lingua Lore_0.1.x_android-arm64.apk"
-   ```
-
-7. **打标签并推送：**
-
-   ```powershell
-   git tag v0.1.x
-   git push origin v0.1.x
-   ```
-
-8. **从本地产物创建 GitHub Release**（使用显式路径）：
-
-   ```powershell
-   $msi = "apps/desktop/src-tauri/target/release/bundle/msi/Lingua Lore_0.1.x_x64_en-US.msi"
-   $exe = "apps/desktop/src-tauri/target/release/bundle/nsis/Lingua Lore_0.1.x_x64-setup.exe"
-   $apk = "apps/desktop/src-tauri/gen/android/app/build/outputs/apk/universal/release/Lingua Lore_0.1.x_android-arm64.apk"
-   gh release create v0.1.x --title "Lingua Lore v0.1.x" --notes "Local release notes." "$msi" "$exe" "$apk"
-   ```
+6. **打标签，并从明确的本地产物路径创建 GitHub Release。**
