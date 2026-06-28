@@ -12,6 +12,9 @@ use crate::storage::{
     import_world_zip as unzip_world, list_worlds as query_worlds, load_api_profile, AppState,
 };
 
+const MAX_MODEL_REQUEST_ATTEMPTS: usize = 4;
+const MAX_WORLD_DRAFT_REPAIR_ATTEMPTS: usize = 4;
+
 const WORLD_DRAFT_SCHEMA: &str = r#"{
   "title": "示例标题",
   "description": "A vivid one-paragraph premise with the central conflict, playable role, tone, and opening hook.",
@@ -90,25 +93,28 @@ pub async fn generate_world_draft(
         request.target_language.trim()
     };
     let difficulty_label = normal_difficulty_label(target_language);
-    let request = ChatCompletionRequest {
-            model: profile.model,
-            messages: vec![
-                ChatMessage::system(format!(
-                    "You generate concise world-creation drafts for an interactive language-learning novel app.\n\
-                     This is not the story-turn generator and you must not use tools.\n\
-                     Return valid json only, without markdown or commentary.\n\
-                     The json must have exactly these keys and string values:\n{}",
-                    WORLD_DRAFT_SCHEMA
-                )),
-                ChatMessage::user(format!(
-                    "Create one original world draft for this selected genre: {genre}.\n\
-                     Use this target language for title, description, genre, and narrative_style: {target_language}.\n\
-                     Generate 2 to 4 reusable characters. Character text should also use {target_language}, except stable ids are not needed.\n\
-                     Keep target_language exactly as {target_language}.\n\
-                     Fill language_level in {target_language} with the normal-difficulty meaning of \"一般难度\". Use this exact value when appropriate: {difficulty_label}.\n\
-                     The generated description should be ready to use directly as the world's premise."
-                )),
-            ],
+    let mut messages = vec![
+        ChatMessage::system(format!(
+            "You generate concise world-creation drafts for an interactive language-learning novel app.\n\
+             This is not the story-turn generator and you must not use tools.\n\
+             Return valid json only, without markdown or commentary.\n\
+             The json must have exactly these keys and string values:\n{}",
+            WORLD_DRAFT_SCHEMA
+        )),
+        ChatMessage::user(format!(
+            "Create one original world draft for this selected genre: {genre}.\n\
+             Use this target language for title, description, genre, and narrative_style: {target_language}.\n\
+             Generate 2 to 4 reusable characters. Character text should also use {target_language}, except stable ids are not needed.\n\
+             Keep target_language exactly as {target_language}.\n\
+             Fill language_level in {target_language} with the normal-difficulty meaning of \"一般难度\". Use this exact value when appropriate: {difficulty_label}.\n\
+             The generated description should be ready to use directly as the world's premise."
+        )),
+    ];
+    let mut last_error = None;
+    for attempt in 0..MAX_WORLD_DRAFT_REPAIR_ATTEMPTS {
+        let request = ChatCompletionRequest {
+            model: profile.model.clone(),
+            messages: messages.clone(),
             tools: None,
             tool_choice: None,
             response_format: Some(ResponseFormat {
@@ -118,16 +124,36 @@ pub async fn generate_world_draft(
             max_tokens: 1200,
             stream: false,
         };
-    let response = chat_completion_with_retries(&client, request).await?;
+        let response = chat_completion_with_retries(&client, request).await?;
 
-    let content = response
-        .choices
-        .first()
-        .and_then(|choice| choice.message.content.clone())
-        .ok_or_else(|| "DeepSeek returned no draft content.".to_string())?;
-    let draft: CreateWorldRequest =
-        serde_json::from_str(&content).map_err(|err| format!("Invalid world draft json: {err}"))?;
-    Ok(normalize_world_draft(draft, genre, target_language))
+        let content = response
+            .choices
+            .first()
+            .and_then(|choice| choice.message.content.clone())
+            .unwrap_or_default();
+        if content.trim().is_empty() {
+            last_error = Some("DeepSeek returned no draft content.".to_string());
+        } else {
+            match serde_json::from_str::<CreateWorldRequest>(&content) {
+                Ok(draft) => return Ok(normalize_world_draft(draft, genre, target_language)),
+                Err(err) => last_error = Some(format!("Invalid world draft json: {err}")),
+            }
+        }
+
+        if attempt + 1 < MAX_WORLD_DRAFT_REPAIR_ATTEMPTS {
+            messages.push(ChatMessage::user(format!(
+                "The previous draft was invalid: {}. Return a complete valid json object only, matching the exact schema and target_language.",
+                last_error
+                    .as_deref()
+                    .unwrap_or("unknown validation failure")
+            )));
+        }
+    }
+
+    Err(format!(
+        "DeepSeek could not produce a valid world draft after retries. Last error: {}",
+        last_error.unwrap_or_else(|| "unknown validation failure".to_string())
+    ))
 }
 
 async fn chat_completion_with_retries(
@@ -135,12 +161,12 @@ async fn chat_completion_with_retries(
     request: ChatCompletionRequest,
 ) -> AppResult<crate::deepseek::ChatCompletionResponse> {
     let mut last_error = None;
-    for attempt in 0..3 {
+    for attempt in 0..MAX_MODEL_REQUEST_ATTEMPTS {
         match client.chat_completion(request.clone()).await {
             Ok(response) => return Ok(response),
             Err(err) => {
                 last_error = Some(err.to_string());
-                if attempt < 2 {
+                if attempt + 1 < MAX_MODEL_REQUEST_ATTEMPTS {
                     sleep(Duration::from_millis(400 * (attempt + 1) as u64)).await;
                 }
             }

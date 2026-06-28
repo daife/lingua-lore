@@ -13,6 +13,11 @@ use crate::story_runtime::prompt_builder::build_messages;
 use crate::tool_runtime::{execute_readonly, read_only_tool_definitions};
 use crate::turn_commit::committer::commit_turn;
 
+const MAX_MODEL_REQUEST_ATTEMPTS: usize = 4;
+const MAX_TURN_REPAIR_ATTEMPTS: usize = 4;
+const MAX_TOOL_ROUNDS: usize = 3;
+const MAX_TOOL_CALLS_TOTAL: usize = 8;
+
 pub async fn preview_story_turn(
     state: &AppState,
     api_profile: ApiProfile,
@@ -25,8 +30,10 @@ pub async fn preview_story_turn(
     let client = DeepSeekClient::new(api_profile.clone());
     let mut tool_rounds = 0;
     let mut tool_calls_total = 0;
+    let mut repair_attempts = 0;
+    let mut last_validation_error = None;
 
-    for attempt in 0..=2 {
+    while repair_attempts < MAX_TURN_REPAIR_ATTEMPTS {
         let response = chat_completion_with_retries(
             &client,
             ChatCompletionRequest {
@@ -54,7 +61,7 @@ pub async fn preview_story_turn(
         if let Some(tool_calls) = message.tool_calls.clone() {
             tool_rounds += 1;
             tool_calls_total += tool_calls.len();
-            if tool_rounds > 3 || tool_calls_total > 8 {
+            if tool_rounds > MAX_TOOL_ROUNDS || tool_calls_total > MAX_TOOL_CALLS_TOTAL {
                 messages.push(ChatMessage::user(
                     "Stop calling tools. Return the final valid json now.",
                 ));
@@ -71,6 +78,8 @@ pub async fn preview_story_turn(
 
         let content = message.content.unwrap_or_default();
         if content.trim().is_empty() {
+            repair_attempts += 1;
+            last_validation_error = Some("DeepSeek returned empty content".to_string());
             messages.push(ChatMessage::user(
                 "Return the final result as valid json only. Do not return empty content.",
             ));
@@ -88,16 +97,20 @@ pub async fn preview_story_turn(
                     output,
                 });
             }
-            Err(err) if attempt < 2 => {
+            Err(err) => {
+                repair_attempts += 1;
+                last_validation_error = Some(err.to_string());
                 messages.push(ChatMessage::user(format!(
                     "Your previous response was invalid json or failed validation: {err}. Return the same turn again as valid json only, with exactly 3 choices labeled A, B, C."
                 )));
             }
-            Err(err) => return Err(err),
         }
     }
 
-    Err(anyhow!("Failed to generate a valid story turn"))
+    Err(anyhow!(
+        "DeepSeek could not produce a valid story turn after retries. Last error: {}",
+        last_validation_error.unwrap_or_else(|| "unknown validation failure".to_string())
+    ))
 }
 
 pub fn commit_story_turn_preview(
@@ -128,12 +141,12 @@ async fn chat_completion_with_retries(
     request: ChatCompletionRequest,
 ) -> Result<ChatCompletionResponse> {
     let mut last_error = None;
-    for attempt in 0..3 {
+    for attempt in 0..MAX_MODEL_REQUEST_ATTEMPTS {
         match client.chat_completion(request.clone()).await {
             Ok(response) => return Ok(response),
             Err(err) => {
                 last_error = Some(err);
-                if attempt < 2 {
+                if attempt + 1 < MAX_MODEL_REQUEST_ATTEMPTS {
                     sleep(Duration::from_millis(400 * (attempt + 1) as u64)).await;
                 }
             }
