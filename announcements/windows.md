@@ -5,4 +5,5 @@
 
 下载地址：
 https://github.com/daife/lingua-lore-starter/releases
+或QQ交流群下载：1040829435
 这些额度由作者个人承担，请大家且用且珍惜。如果觉得项目有帮助，也欢迎把免费试用版分享给同样感兴趣的朋友。
