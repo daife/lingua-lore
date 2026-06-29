@@ -140,6 +140,10 @@ export interface CheckVersionResult {
   latest_version: string;
 }
 
+export interface AnnouncementResult {
+  content: string;
+}
+
 export interface TranslationResult {
   source_text: string;
   translated_text: string;

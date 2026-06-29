@@ -1,10 +1,19 @@
 use serde::Serialize;
 use tauri::AppHandle;
 
+const RELEASE_URL: &str = "https://api.github.com/repos/daife/lingua-lore/releases/latest";
+const ANNOUNCEMENT_BASE_URL: &str =
+    "https://raw.githubusercontent.com/daife/lingua-lore/main/announcements";
+
 #[derive(Debug, Serialize)]
 pub struct CheckVersionResult {
     pub has_update: bool,
     pub latest_version: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct AnnouncementResult {
+    pub content: String,
 }
 
 #[derive(serde::Deserialize)]
@@ -53,10 +62,7 @@ pub async fn check_version() -> CheckVersionResult {
         }
     };
 
-    let resp = client
-        .get("https://api.github.com/repos/daife/lingua-lore/releases/latest")
-        .send()
-        .await;
+    let resp = client.get(RELEASE_URL).send().await;
 
     let resp = match resp {
         Ok(r) => r,
@@ -83,6 +89,45 @@ pub async fn check_version() -> CheckVersionResult {
     CheckVersionResult {
         has_update,
         latest_version: release.tag_name,
+    }
+}
+
+#[tauri::command]
+pub async fn check_announcement() -> AnnouncementResult {
+    let client = reqwest::Client::builder()
+        .user_agent("LinguaLore/1.0")
+        .timeout(std::time::Duration::from_secs(8))
+        .build();
+
+    let client = match client {
+        Ok(c) => c,
+        Err(_) => {
+            return AnnouncementResult {
+                content: String::new(),
+            }
+        }
+    };
+
+    let platform = match std::env::consts::OS {
+        "windows" => "windows",
+        "android" => "android",
+        other => other,
+    };
+    let url = format!("{ANNOUNCEMENT_BASE_URL}/{platform}.md");
+
+    let resp = client.get(url).send().await;
+    let resp = match resp {
+        Ok(r) if r.status().is_success() => r,
+        _ => {
+            return AnnouncementResult {
+                content: String::new(),
+            }
+        }
+    };
+
+    let content = resp.text().await.unwrap_or_default();
+    AnnouncementResult {
+        content: content.trim().to_string(),
     }
 }
 

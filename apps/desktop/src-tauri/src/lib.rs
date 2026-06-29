@@ -37,6 +37,7 @@ pub fn run() {
             commands::settings_commands::get_storage_info,
             commands::translation_commands::translate_selection,
             commands::version_commands::check_version,
+            commands::version_commands::check_announcement,
             commands::version_commands::quit_app
         ])
         .run(tauri::generate_context!())

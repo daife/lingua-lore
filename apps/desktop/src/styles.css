@@ -161,6 +161,15 @@ button {
   -webkit-user-select: text;
 }
 
+.announcement-dialog {
+  max-height: min(72dvh, 620px);
+}
+
+.announcement-copy {
+  max-height: 48dvh;
+  overflow-y: auto;
+}
+
 .reader-shell {
   position: relative;
   grid-column: 1;
